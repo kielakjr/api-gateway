@@ -1,4 +1,4 @@
-package kielakjr.api_gateway;
+package kielakjr.api_gateway.handler;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;

@@ -1,4 +1,4 @@
-package kielakjr.api_gateway;
+package kielakjr.api_gateway.server;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -9,6 +9,7 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpServerCodec;
+import kielakjr.api_gateway.handler.GatewayHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.ChannelOption;
 
