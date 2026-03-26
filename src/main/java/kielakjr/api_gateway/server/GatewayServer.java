@@ -6,8 +6,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpRequestDecoder;
-import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpServerCodec;
 import kielakjr.api_gateway.handler.GatewayHandler;
 import io.netty.channel.socket.SocketChannel;
@@ -15,12 +13,18 @@ import io.netty.channel.ChannelOption;
 
 import io.netty.bootstrap.ServerBootstrap;
 
+import java.util.List;
+import kielakjr.api_gateway.config.RouteConfig;
+import kielakjr.api_gateway.router.Router;
+
 public class GatewayServer {
 
   private final int port;
+  private final List<RouteConfig> routes;
 
-  public GatewayServer(int port) {
+  public GatewayServer(int port, List<RouteConfig> routes) {
     this.port = port;
+    this.routes = routes;
   }
 
   public void run() throws Exception {
@@ -35,7 +39,7 @@ public class GatewayServer {
           public void initChannel(SocketChannel ch) throws Exception {
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
-            ch.pipeline().addLast(new GatewayHandler());
+            ch.pipeline().addLast(new GatewayHandler(new Router(routes)));
           }
         })
         .option(ChannelOption.SO_BACKLOG, 128)

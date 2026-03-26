@@ -14,7 +14,14 @@ import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.CharsetUtil;
 
+import kielakjr.api_gateway.router.Router;
+
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+  private Router router;
+
+  public GatewayHandler(Router router) {
+    this.router = router;
+  }
 
   @Override
   public void channelReadComplete(ChannelHandlerContext ctx) {
@@ -23,7 +30,7 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) {
-    writeResponse(ctx, msg, "Hello, World!");
+    writeResponse(ctx, msg, router.resolve(msg.uri()));
   }
 
   @Override
