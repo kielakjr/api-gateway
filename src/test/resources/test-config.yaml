@@ -1,0 +1,11 @@
+server:
+  port: 9090
+
+routes:
+  - path: /api/users
+    upstreams:
+      - http://localhost:9001
+  - path: /api/orders
+    upstreams:
+      - http://localhost:9002
+      - http://localhost:9003
