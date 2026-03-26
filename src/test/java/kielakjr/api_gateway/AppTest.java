@@ -1,4 +1,4 @@
-package kielakjr;
+package kielakjr.api_gateway;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
