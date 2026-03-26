@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+routes:
+  - path: /api/users
+    upstreams:
+      - http://localhost:9001
+  - path: /api/orders
+    upstreams:
+      - http://localhost:9002
+  - path: /api/payments
+    upstreams:
+      - http://localhost:9003
