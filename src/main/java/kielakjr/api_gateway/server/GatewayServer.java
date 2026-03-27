@@ -18,6 +18,7 @@ import kielakjr.api_gateway.config.RouteConfig;
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.filter.LoggingFilter;
+import kielakjr.api_gateway.filter.AuthFilter;
 
 public class GatewayServer {
 
@@ -41,7 +42,7 @@ public class GatewayServer {
           public void initChannel(SocketChannel ch) throws Exception {
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
-            ch.pipeline().addLast(new GatewayHandler(new Router(routes), new FilterChain(List.of(new LoggingFilter()))));
+            ch.pipeline().addLast(new GatewayHandler(new Router(routes), new FilterChain(List.of(new LoggingFilter(), new AuthFilter()))));
           }
         })
         .option(ChannelOption.SO_BACKLOG, 128)
