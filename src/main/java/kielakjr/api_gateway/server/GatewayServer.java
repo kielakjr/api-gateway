@@ -16,6 +16,8 @@ import io.netty.bootstrap.ServerBootstrap;
 import java.util.List;
 import kielakjr.api_gateway.config.RouteConfig;
 import kielakjr.api_gateway.router.Router;
+import kielakjr.api_gateway.filter.FilterChain;
+import kielakjr.api_gateway.filter.LoggingFilter;
 
 public class GatewayServer {
 
@@ -39,7 +41,7 @@ public class GatewayServer {
           public void initChannel(SocketChannel ch) throws Exception {
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
-            ch.pipeline().addLast(new GatewayHandler(new Router(routes)));
+            ch.pipeline().addLast(new GatewayHandler(new Router(routes), new FilterChain(List.of(new LoggingFilter()))));
           }
         })
         .option(ChannelOption.SO_BACKLOG, 128)

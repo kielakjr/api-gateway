@@ -15,12 +15,15 @@ import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.CharsetUtil;
 
 import kielakjr.api_gateway.router.Router;
+import kielakjr.api_gateway.filter.FilterChain;
 
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
   private Router router;
+  private FilterChain filterChain;
 
-  public GatewayHandler(Router router) {
+  public GatewayHandler(Router router, FilterChain filterChain) {
     this.router = router;
+    this.filterChain = filterChain;
   }
 
   @Override
@@ -30,7 +33,9 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) {
-    writeResponse(ctx, msg, router.resolve(msg.uri()));
+    if (filterChain.execute(ctx, msg)) {
+      writeResponse(ctx, msg, router.resolve(msg.uri()));
+    }
   }
 
   @Override
