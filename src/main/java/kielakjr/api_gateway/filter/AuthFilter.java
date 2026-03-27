@@ -6,12 +6,37 @@ import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+
+import javax.crypto.SecretKey;
+
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import io.netty.buffer.Unpooled;
 import io.netty.util.CharsetUtil;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 
+class JwtUtil {
+  public static boolean validateToken(String token, String secret) {
+    try {
+      SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+      Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
+      return true;
+    } catch (Exception e) {
+      System.out.println("Token validation error: " + e.getMessage());
+      return false;
+    }
+  }
+}
+
 public class AuthFilter implements Filter {
+  private String jwtSecret;
+
+  public AuthFilter(String jwtSecret) {
+    this.jwtSecret = jwtSecret;
+  }
+
   @Override
   public boolean apply(ChannelHandlerContext ctx, FullHttpRequest request) {
     String authHeader = request.headers().get("Authorization");
@@ -21,7 +46,7 @@ public class AuthFilter implements Filter {
     }
 
     String token = authHeader.substring(7);
-    if (!"valid-token".equals(token)) {
+    if (!JwtUtil.validateToken(token, jwtSecret)) {
       writeUnauthorizedResponse(ctx);
       return false;
     }

@@ -10,7 +10,7 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import kielakjr.api_gateway.handler.GatewayHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.ChannelOption;
-
+import io.github.cdimascio.dotenv.Dotenv;
 import io.netty.bootstrap.ServerBootstrap;
 
 import java.util.List;
@@ -31,6 +31,7 @@ public class GatewayServer {
   }
 
   public void run() throws Exception {
+    Dotenv dotenv = Dotenv.load();
     EventLoopGroup bossGroup = new NioEventLoopGroup();
     EventLoopGroup workerGroup = new NioEventLoopGroup();
     try {
@@ -42,7 +43,7 @@ public class GatewayServer {
           public void initChannel(SocketChannel ch) throws Exception {
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
-            ch.pipeline().addLast(new GatewayHandler(new Router(routes), new FilterChain(List.of(new LoggingFilter(), new AuthFilter()))));
+            ch.pipeline().addLast(new GatewayHandler(new Router(routes), new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET"))))));
           }
         })
         .option(ChannelOption.SO_BACKLOG, 128)
