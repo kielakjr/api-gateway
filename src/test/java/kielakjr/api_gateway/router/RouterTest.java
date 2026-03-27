@@ -28,40 +28,40 @@ class RouterTest {
 
   @Test
   void resolve_exactPathMatch_returnsUpstream() {
-    Optional<String> result = router.resolve("/api/users");
+    String result = router.resolve("/api/users");
 
-    assertTrue(result.isPresent());
-    assertEquals("http://localhost:9001", result.get());
+    assertNotNull(result);
+    assertEquals("http://localhost:9001", result);
   }
 
   @Test
   void resolve_prefixMatch_returnsUpstream() {
-    Optional<String> result = router.resolve("/api/users/123");
+    String result = router.resolve("/api/users/123");
 
-    assertTrue(result.isPresent());
-    assertEquals("http://localhost:9001", result.get());
+    assertNotNull(result);
+    assertEquals("http://localhost:9001", result);
   }
 
   @Test
   void resolve_noMatch_returnsEmpty() {
-    Optional<String> result = router.resolve("/api/products");
+    String result = router.resolve("/api/products");
 
-    assertTrue(result.isEmpty());
+    assertNull(result);
   }
 
   @Test
   void resolve_rootPath_returnsEmpty() {
-    Optional<String> result = router.resolve("/");
+    String result = router.resolve("/");
 
-    assertTrue(result.isEmpty());
+    assertNull(result);
   }
 
   @Test
   void resolve_multipleUpstreams_returnsFirstUpstream() {
-    Optional<String> result = router.resolve("/api/orders");
+    String result = router.resolve("/api/orders");
 
-    assertTrue(result.isPresent());
-    assertEquals("http://localhost:9002", result.get());
+    assertNotNull(result);
+    assertEquals("http://localhost:9002", result);
   }
 
   @Test
@@ -76,18 +76,18 @@ class RouterTest {
 
     Router routerWithOverlap = new Router(List.of(broad, specific));
 
-    Optional<String> result = routerWithOverlap.resolve("/api/users");
+    String result = routerWithOverlap.resolve("/api/users");
 
-    assertTrue(result.isPresent());
-    assertEquals("http://localhost:8001", result.get(), "Should match the first route in the list");
+    assertNotNull(result);
+    assertEquals("http://localhost:8001", result, "Should match the first route in the list");
   }
 
   @Test
   void resolve_emptyRoutes_returnsEmpty() {
     Router emptyRouter = new Router(List.of());
 
-    Optional<String> result = emptyRouter.resolve("/api/users");
+    String result = emptyRouter.resolve("/api/users");
 
-    assertTrue(result.isEmpty());
+    assertNull(result);
   }
 }

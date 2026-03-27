@@ -44,12 +44,16 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
     FullHttpResponse response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
-      HttpResponseStatus.OK,
-      Unpooled.copiedBuffer(content, CharsetUtil.UTF_8)
+      content == null ? HttpResponseStatus.NOT_FOUND : HttpResponseStatus.OK,
+      content == null ? Unpooled.EMPTY_BUFFER : Unpooled.copiedBuffer(content, CharsetUtil.UTF_8)
     );
 
-    response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
-    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+    if (content == null) {
+      response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
+    } else {
+      response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+      response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
+    }
 
     if (keepAlive) {
       response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
