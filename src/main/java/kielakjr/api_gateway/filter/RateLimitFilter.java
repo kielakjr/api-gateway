@@ -1,10 +1,19 @@
 package kielakjr.api_gateway.filter;
 
+import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpVersion;
+import io.netty.buffer.Unpooled;
+import io.netty.util.CharsetUtil;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
 
 public class RateLimitFilter implements Filter {
   private final int maxRequestsPerMinute;
@@ -18,12 +27,28 @@ public class RateLimitFilter implements Filter {
   @Override
   public boolean apply(ChannelHandlerContext ctx, FullHttpRequest request) {
     String clientId = getClientId(ctx);
-    requestCounts.computeIfAbsent(clientId, k -> new TokenBucket(maxRequestsPerMinute));
-    return requestCounts.get(clientId).consume();
+    TokenBucket tokenBucket = requestCounts.computeIfAbsent(clientId, k -> new TokenBucket(maxRequestsPerMinute));
+    if (tokenBucket.consume()) {
+      return true;
+    } else {
+      writeTooManyRequestsResponse(ctx);
+      return false;
+    }
   }
 
   private String getClientId(ChannelHandlerContext ctx) {
-    return ctx.channel().remoteAddress().toString();
+    InetSocketAddress socketAddress = (InetSocketAddress) ctx.channel().remoteAddress();
+    return socketAddress.getHostString();
+  }
+
+  private void writeTooManyRequestsResponse(ChannelHandlerContext ctx) {
+    FullHttpResponse response = new DefaultFullHttpResponse(
+      HttpVersion.HTTP_1_1,
+      HttpResponseStatus.TOO_MANY_REQUESTS,
+      Unpooled.copiedBuffer("Too Many Requests", CharsetUtil.UTF_8)
+    );
+    response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
   }
 
   private class TokenBucket {
@@ -50,7 +75,7 @@ public class RateLimitFilter implements Filter {
       long now = System.currentTimeMillis();
       long elapsed = now - lastRefillTime;
       if (elapsed > 60000) {
-        tokens = new AtomicLong(capacity);
+        tokens.set(capacity);
         lastRefillTime = now;
       }
     }

@@ -24,15 +24,18 @@ import kielakjr.api_gateway.filter.RateLimitFilter;
 public class GatewayServer {
 
   private final int port;
-  private final List<RouteConfig> routes;
+  private final Router router;
+  private final FilterChain filterChain;
+
 
   public GatewayServer(int port, List<RouteConfig> routes) {
     this.port = port;
-    this.routes = routes;
+    this.router = new Router(routes);
+    Dotenv dotenv = Dotenv.load();
+    this.filterChain = new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(2)));
   }
 
   public void run() throws Exception {
-    Dotenv dotenv = Dotenv.load();
     EventLoopGroup bossGroup = new NioEventLoopGroup();
     EventLoopGroup workerGroup = new NioEventLoopGroup();
     try {
@@ -44,7 +47,7 @@ public class GatewayServer {
           public void initChannel(SocketChannel ch) throws Exception {
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
-            ch.pipeline().addLast(new GatewayHandler(new Router(routes), new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(2)))));
+            ch.pipeline().addLast(new GatewayHandler(router, filterChain));
           }
         })
         .option(ChannelOption.SO_BACKLOG, 128)
