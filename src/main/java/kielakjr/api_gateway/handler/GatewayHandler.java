@@ -16,10 +16,13 @@ import io.netty.util.CharsetUtil;
 
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
+import kielakjr.api_gateway.proxy.ProxyClient;
+import kielakjr.api_gateway.proxy.ProxyResponse;
 
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
   private Router router;
   private FilterChain filterChain;
+  private final ProxyClient proxyClient = new ProxyClient();
 
   public GatewayHandler(Router router, FilterChain filterChain) {
     this.router = router;
@@ -34,7 +37,18 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) {
     if (filterChain.execute(ctx, msg)) {
-      writeResponse(ctx, msg, router.resolve(msg.uri()));
+      String route = router.resolve(msg.uri());
+      if (route == null) {
+        writeNotFoundResponse(ctx);
+        return;
+      }
+      try {
+        ProxyResponse response = proxyClient.forwardRequest(route, msg);
+        writeResponse(ctx, msg, new String(response.getBody(), CharsetUtil.UTF_8));
+      } catch (Exception e) {
+        e.printStackTrace();
+        writeNotFoundResponse(ctx);
+      }
     }
   }
 
@@ -49,8 +63,8 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
     FullHttpResponse response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
-      content == null ? HttpResponseStatus.NOT_FOUND : HttpResponseStatus.OK,
-      content == null ? Unpooled.EMPTY_BUFFER : Unpooled.copiedBuffer(content, CharsetUtil.UTF_8)
+      HttpResponseStatus.OK,
+      Unpooled.copiedBuffer(content, CharsetUtil.UTF_8)
     );
 
     if (content == null) {
@@ -69,5 +83,15 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     } else {
       ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
     }
+  }
+
+  private void writeNotFoundResponse(ChannelHandlerContext ctx) {
+    FullHttpResponse response = new DefaultFullHttpResponse(
+      HttpVersion.HTTP_1_1,
+      HttpResponseStatus.NOT_FOUND,
+      Unpooled.EMPTY_BUFFER
+    );
+    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
+    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
   }
 }
