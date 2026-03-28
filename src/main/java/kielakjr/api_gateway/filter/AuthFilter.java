@@ -17,6 +17,8 @@ import io.netty.util.CharsetUtil;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 
+import kielakjr.api_gateway.context.RequestContext;
+
 class JwtUtil {
   public static boolean validateToken(String token, String secret) {
     try {
@@ -38,7 +40,7 @@ public class AuthFilter implements Filter {
   }
 
   @Override
-  public boolean apply(ChannelHandlerContext ctx, FullHttpRequest request) {
+  public boolean apply(ChannelHandlerContext ctx, FullHttpRequest request, RequestContext rctx) {
     String authHeader = request.headers().get("Authorization");
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
       writeUnauthorizedResponse(ctx);

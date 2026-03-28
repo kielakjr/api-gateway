@@ -17,6 +17,7 @@ import io.netty.util.CharsetUtil;
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.proxy.ProxyClient;
+import kielakjr.api_gateway.context.RequestContext;
 
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
   private Router router;
@@ -35,7 +36,8 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) {
-    if (filterChain.execute(ctx, msg)) {
+    RequestContext rctx = filterChain.execute(ctx, msg);
+    if (rctx != null) {
       String route = router.resolve(msg.uri());
       if (route == null) {
         writeNotFoundResponse(ctx);
@@ -43,6 +45,8 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
       }
       proxyClient.forwardRequest(route, msg).thenAccept(response -> {
         writeResponse(ctx, msg, response.getStatusCode(), response.getContentType(), response.getBody() != null ? new String(response.getBody(), CharsetUtil.UTF_8) : null);
+        rctx.setResolvedUpstream(route);
+        rctx.setMatchedRoute(route);
       }).exceptionally(throwable -> {
         throwable.printStackTrace();
         writeUpstreamErrorResponse(ctx);

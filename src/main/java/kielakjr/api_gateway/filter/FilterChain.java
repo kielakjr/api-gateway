@@ -1,8 +1,11 @@
 package kielakjr.api_gateway.filter;
 
+import java.net.InetSocketAddress;
 import java.util.List;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
+
+import kielakjr.api_gateway.context.RequestContext;
 
 public class FilterChain {
   private final List<Filter> filters;
@@ -11,13 +14,18 @@ public class FilterChain {
     this.filters = filters;
   }
 
-  public boolean execute(ChannelHandlerContext ctx, FullHttpRequest request) {
+  public RequestContext execute(ChannelHandlerContext ctx, FullHttpRequest request) {
+    RequestContext requestContext = new RequestContext(this.getClientId(ctx));
     for (Filter filter : filters) {
-      if (!filter.apply(ctx, request)) {
-        return false;
+      if (!filter.apply(ctx, request, requestContext)) {
+        return null;
       }
     }
-    return true;
+    return requestContext;
   }
 
+  private String getClientId(ChannelHandlerContext ctx) {
+    InetSocketAddress socketAddress = (InetSocketAddress) ctx.channel().remoteAddress();
+    return socketAddress.getHostString();
+  }
 }

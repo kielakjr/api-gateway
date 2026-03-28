@@ -1,6 +1,5 @@
 package kielakjr.api_gateway.filter;
 
-import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -15,6 +14,8 @@ import io.netty.util.CharsetUtil;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 
+import kielakjr.api_gateway.context.RequestContext;
+
 public class RateLimitFilter implements Filter {
   private final int maxRequestsPerMinute;
   private ConcurrentHashMap<String, TokenBucket> requestCounts;
@@ -25,8 +26,8 @@ public class RateLimitFilter implements Filter {
   }
 
   @Override
-  public boolean apply(ChannelHandlerContext ctx, FullHttpRequest request) {
-    String clientId = getClientId(ctx);
+  public boolean apply(ChannelHandlerContext ctx, FullHttpRequest request, RequestContext rctx) {
+    String clientId = rctx.getClientIp();
     TokenBucket tokenBucket = requestCounts.computeIfAbsent(clientId, k -> new TokenBucket(maxRequestsPerMinute));
     if (tokenBucket.consume()) {
       return true;
@@ -34,11 +35,6 @@ public class RateLimitFilter implements Filter {
       writeTooManyRequestsResponse(ctx);
       return false;
     }
-  }
-
-  private String getClientId(ChannelHandlerContext ctx) {
-    InetSocketAddress socketAddress = (InetSocketAddress) ctx.channel().remoteAddress();
-    return socketAddress.getHostString();
   }
 
   private void writeTooManyRequestsResponse(ChannelHandlerContext ctx) {
