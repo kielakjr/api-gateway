@@ -19,6 +19,7 @@ import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.filter.LoggingFilter;
 import kielakjr.api_gateway.filter.AuthFilter;
+import kielakjr.api_gateway.filter.RateLimitFilter;
 
 public class GatewayServer {
 
@@ -43,7 +44,7 @@ public class GatewayServer {
           public void initChannel(SocketChannel ch) throws Exception {
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
-            ch.pipeline().addLast(new GatewayHandler(new Router(routes), new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET"))))));
+            ch.pipeline().addLast(new GatewayHandler(new Router(routes), new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(2)))));
           }
         })
         .option(ChannelOption.SO_BACKLOG, 128)
