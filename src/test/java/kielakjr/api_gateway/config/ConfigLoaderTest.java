@@ -56,4 +56,30 @@ class ConfigLoaderTest {
   void loadConfig_invalidPath_throwsException() {
     assertThrows(Exception.class, () -> configLoader.loadConfig("nonexistent.yaml"));
   }
+
+  @Test
+  void loadConfig_malformedYaml_throwsException() {
+    String malformedPath = new File("src/test/resources/malformed-config.yaml").getAbsolutePath();
+
+    assertThrows(Exception.class, () -> configLoader.loadConfig(malformedPath));
+  }
+
+  @Test
+  void loadConfig_missingServer_returnsNullServer() throws Exception {
+    String path = new File("src/test/resources/missing-server-config.yaml").getAbsolutePath();
+
+    GatewayConfig config = configLoader.loadConfig(path);
+
+    assertNull(config.getServer());
+  }
+
+  @Test
+  void loadConfig_emptyRoutes_returnsEmptyList() throws Exception {
+    String path = new File("src/test/resources/empty-routes-config.yaml").getAbsolutePath();
+
+    GatewayConfig config = configLoader.loadConfig(path);
+
+    assertNotNull(config.getRoutes());
+    assertTrue(config.getRoutes().isEmpty());
+  }
 }

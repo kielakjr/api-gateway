@@ -1,5 +1,6 @@
 package kielakjr.api_gateway.handler;
 
+import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
@@ -143,5 +144,51 @@ class GatewayHandlerTest {
 
     assertEquals(HttpResponseStatus.OK, response.status());
     response.release();
+  }
+
+  @Test
+  void channelRead0_postWithBody_returns200() {
+    FilterChain chain = new FilterChain(List.of());
+    EmbeddedChannel channel = createChannel(chain);
+
+    FullHttpRequest request = new DefaultFullHttpRequest(
+        HttpVersion.HTTP_1_1, HttpMethod.POST, "/api/users",
+        Unpooled.copiedBuffer("{\"name\":\"test\"}", CharsetUtil.UTF_8)
+    );
+    channel.writeInbound(request);
+    FullHttpResponse response = channel.readOutbound();
+
+    assertEquals(HttpResponseStatus.OK, response.status());
+    response.release();
+  }
+
+  @Test
+  void channelRead0_multipleRequestsSameChannel_allSucceed() {
+    FilterChain chain = new FilterChain(List.of());
+    EmbeddedChannel channel = createChannel(chain);
+
+    FullHttpRequest request1 = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
+    HttpUtil.setKeepAlive(request1, true);
+    channel.writeInbound(request1);
+    FullHttpResponse response1 = channel.readOutbound();
+    assertEquals(HttpResponseStatus.OK, response1.status());
+    response1.release();
+
+    FullHttpRequest request2 = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users/456");
+    HttpUtil.setKeepAlive(request2, true);
+    channel.writeInbound(request2);
+    FullHttpResponse response2 = channel.readOutbound();
+    assertEquals(HttpResponseStatus.OK, response2.status());
+    response2.release();
+  }
+
+  @Test
+  void exceptionCaught_closesChannel() {
+    FilterChain chain = new FilterChain(List.of());
+    EmbeddedChannel channel = createChannel(chain);
+
+    channel.pipeline().fireExceptionCaught(new RuntimeException("test error"));
+
+    assertFalse(channel.isActive());
   }
 }

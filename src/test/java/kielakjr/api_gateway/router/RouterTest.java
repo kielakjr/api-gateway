@@ -89,4 +89,32 @@ class RouterTest {
 
     assertNull(result);
   }
+
+  @Test
+  void resolve_pathWithQueryString_matchesRoute() {
+    String result = router.resolve("/api/users?page=1&size=10");
+
+    assertNotNull(result);
+    assertEquals("http://localhost:9001", result);
+  }
+
+  @Test
+  void resolve_pathWithTrailingSlash_matchesRoute() {
+    String result = router.resolve("/api/users/");
+
+    assertNotNull(result);
+    assertEquals("http://localhost:9001", result);
+  }
+
+  @Test
+  void resolve_caseSensitive_doesNotMatchDifferentCase() {
+    String result = router.resolve("/API/USERS");
+
+    assertNull(result);
+  }
+
+  @Test
+  void resolve_nullPath_throwsException() {
+    assertThrows(NullPointerException.class, () -> router.resolve(null));
+  }
 }

@@ -9,13 +9,16 @@ import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.util.CharsetUtil;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.crypto.SecretKey;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.Date;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -146,5 +149,67 @@ class AuthFilterTest {
     FilterResult result = applyFilter(request);
 
     assertFalse(result.passed());
+  }
+
+  @Test
+  void apply_expiredToken_returnsFalse() {
+    SecretKey key = Keys.hmacShaKeyFor(RAW_SECRET.getBytes());
+    String token = Jwts.builder()
+        .subject("testuser")
+        .expiration(Date.from(Instant.now().minusSeconds(3600)))
+        .signWith(key)
+        .compact();
+    FullHttpRequest request = createRequest("Bearer " + token);
+
+    FilterResult result = applyFilter(request);
+
+    assertFalse(result.passed());
+  }
+
+  @Test
+  void apply_tokenWithClaims_returnsTrue() {
+    SecretKey key = Keys.hmacShaKeyFor(RAW_SECRET.getBytes());
+    String token = Jwts.builder()
+        .subject("testuser")
+        .claim("role", "admin")
+        .claim("tenant", "acme")
+        .signWith(key)
+        .compact();
+    FullHttpRequest request = createRequest("Bearer " + token);
+
+    FilterResult result = applyFilter(request);
+
+    assertTrue(result.passed());
+    assertNull(result.response());
+  }
+
+  @Test
+  void apply_nullSecret_returnsFalse() {
+    AuthFilter nullSecretFilter = new AuthFilter(null);
+    String token = generateValidToken();
+    FullHttpRequest request = createRequest("Bearer " + token);
+
+    AtomicBoolean result = new AtomicBoolean();
+    EmbeddedChannel channel = new EmbeddedChannel(new ChannelInboundHandlerAdapter() {
+      @Override
+      public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        result.set(nullSecretFilter.apply(ctx, request));
+      }
+    });
+    channel.writeInbound(request);
+
+    assertFalse(result.get());
+  }
+
+  @Test
+  void apply_unauthorizedResponse_containsBody() {
+    FullHttpRequest request = createRequest(null);
+
+    FilterResult result = applyFilter(request);
+
+    assertNotNull(result.response());
+    String body = result.response().content().toString(CharsetUtil.UTF_8);
+    assertEquals("Unauthorized", body);
+    result.response().release();
   }
 }

@@ -1,19 +1,21 @@
 package kielakjr.api_gateway;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
+import kielakjr.api_gateway.config.ConfigLoader;
+import kielakjr.api_gateway.config.GatewayConfig;
 import org.junit.jupiter.api.Test;
 
-/**
- * Unit test for simple App.
- */
-public class AppTest {
+import static org.junit.jupiter.api.Assertions.*;
 
-    /**
-     * Rigorous Test :-)
-     */
-    @Test
-    public void shouldAnswerWithTrue() {
-        assertTrue(true);
-    }
+class AppTest {
+
+  @Test
+  void configFileExists_andParsesSuccessfully() throws Exception {
+    ConfigLoader loader = new ConfigLoader();
+    GatewayConfig config = loader.loadConfig("src/test/resources/test-config.yaml");
+
+    assertNotNull(config);
+    assertNotNull(config.getServer());
+    assertNotNull(config.getRoutes());
+    assertFalse(config.getRoutes().isEmpty());
+  }
 }

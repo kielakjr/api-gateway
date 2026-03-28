@@ -1,0 +1,4 @@
+routes:
+  - path: /api/users
+    upstreams:
+      - http://localhost:9001
