@@ -17,7 +17,6 @@ import io.netty.util.CharsetUtil;
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.proxy.ProxyClient;
-import kielakjr.api_gateway.proxy.ProxyResponse;
 
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
   private Router router;
@@ -42,13 +41,13 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         writeNotFoundResponse(ctx);
         return;
       }
-      try {
-        ProxyResponse response = proxyClient.forwardRequest(route, msg);
+      proxyClient.forwardRequest(route, msg).thenAccept(response -> {
         writeResponse(ctx, msg, new String(response.getBody(), CharsetUtil.UTF_8));
-      } catch (Exception e) {
-        e.printStackTrace();
-        writeNotFoundResponse(ctx);
-      }
+      }).exceptionally(throwable -> {
+        throwable.printStackTrace();
+        writeUpstreamErrorResponse(ctx);
+        return null;
+      });
     }
   }
 
@@ -89,6 +88,16 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     FullHttpResponse response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
       HttpResponseStatus.NOT_FOUND,
+      Unpooled.EMPTY_BUFFER
+    );
+    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
+    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+  }
+
+  private void writeUpstreamErrorResponse(ChannelHandlerContext ctx) {
+    FullHttpResponse response = new DefaultFullHttpResponse(
+      HttpVersion.HTTP_1_1,
+      HttpResponseStatus.BAD_GATEWAY,
       Unpooled.EMPTY_BUFFER
     );
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);

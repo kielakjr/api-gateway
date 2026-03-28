@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -34,8 +35,7 @@ class ProxyClientTest {
 
       String response = String.format(
           "{\"method\":\"%s\",\"path\":\"%s\",\"bodyLength\":%d}",
-          method, path, requestBody.length
-      );
+          method, path, requestBody.length);
 
       byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
       exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -63,15 +63,14 @@ class ProxyClientTest {
   private FullHttpRequest createNettyRequest(HttpMethod method, String uri, String body) {
     return new DefaultFullHttpRequest(
         HttpVersion.HTTP_1_1, method, uri,
-        Unpooled.copiedBuffer(body, CharsetUtil.UTF_8)
-    );
+        Unpooled.copiedBuffer(body, CharsetUtil.UTF_8));
   }
 
   @Test
   void forwardRequest_get_returnsUpstreamResponse() throws Exception {
     FullHttpRequest request = createNettyRequest(HttpMethod.GET, "/api/users");
 
-    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request);
+    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request).join();
 
     assertEquals(200, response.getStatusCode());
     String body = new String(response.getBody(), StandardCharsets.UTF_8);
@@ -84,7 +83,7 @@ class ProxyClientTest {
   void forwardRequest_post_forwardsBody() throws Exception {
     FullHttpRequest request = createNettyRequest(HttpMethod.POST, "/api/users", "{\"name\":\"test\"}");
 
-    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request);
+    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request).join();
 
     assertEquals(200, response.getStatusCode());
     String body = new String(response.getBody(), StandardCharsets.UTF_8);
@@ -97,7 +96,7 @@ class ProxyClientTest {
   void forwardRequest_put_forwardsMethodAndBody() throws Exception {
     FullHttpRequest request = createNettyRequest(HttpMethod.PUT, "/api/users/1", "{\"name\":\"updated\"}");
 
-    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request);
+    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request).join();
 
     assertEquals(200, response.getStatusCode());
     String body = new String(response.getBody(), StandardCharsets.UTF_8);
@@ -110,7 +109,7 @@ class ProxyClientTest {
   void forwardRequest_delete_forwardsMethod() throws Exception {
     FullHttpRequest request = createNettyRequest(HttpMethod.DELETE, "/api/users/1");
 
-    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request);
+    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request).join();
 
     assertEquals(200, response.getStatusCode());
     String body = new String(response.getBody(), StandardCharsets.UTF_8);
@@ -122,7 +121,7 @@ class ProxyClientTest {
   void forwardRequest_subpath_preservesFullUri() throws Exception {
     FullHttpRequest request = createNettyRequest(HttpMethod.GET, "/api/users/123/orders");
 
-    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request);
+    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request).join();
 
     assertEquals(200, response.getStatusCode());
     String body = new String(response.getBody(), StandardCharsets.UTF_8);
@@ -134,7 +133,7 @@ class ProxyClientTest {
   void forwardRequest_emptyBody_sendsZeroLength() throws Exception {
     FullHttpRequest request = createNettyRequest(HttpMethod.GET, "/test");
 
-    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request);
+    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request).join();
 
     String body = new String(response.getBody(), StandardCharsets.UTF_8);
     assertTrue(body.contains("\"bodyLength\":0"));
@@ -145,9 +144,7 @@ class ProxyClientTest {
   void forwardRequest_unreachableUpstream_throwsException() {
     FullHttpRequest request = createNettyRequest(HttpMethod.GET, "/test");
 
-    assertThrows(Exception.class, () ->
-        proxyClient.forwardRequest("http://localhost:1", request)
-    );
+    assertThrows(CompletionException.class, () -> proxyClient.forwardRequest("http://localhost:1", request).join());
     request.release();
   }
 
@@ -155,7 +152,7 @@ class ProxyClientTest {
   void forwardRequest_responseBody_isNotEmpty() throws Exception {
     FullHttpRequest request = createNettyRequest(HttpMethod.GET, "/test");
 
-    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request);
+    ProxyResponse response = proxyClient.forwardRequest(baseUrl(), request).join();
 
     assertNotNull(response.getBody());
     assertTrue(response.getBody().length > 0);

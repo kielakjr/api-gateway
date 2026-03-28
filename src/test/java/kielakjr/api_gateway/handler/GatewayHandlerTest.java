@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,8 +38,7 @@ class GatewayHandlerTest {
 
       String response = String.format(
           "{\"method\":\"%s\",\"path\":\"%s\",\"bodyLength\":%d}",
-          method, path, requestBody.length
-      );
+          method, path, requestBody.length);
 
       byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
       exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -71,7 +71,34 @@ class GatewayHandlerTest {
   private FullHttpResponse sendRequest(EmbeddedChannel channel, HttpMethod method, String uri) {
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, method, uri);
     channel.writeInbound(request);
-    return channel.readOutbound();
+    return awaitOutboundResponse(channel);
+  }
+
+  private FullHttpResponse awaitOutboundResponse(EmbeddedChannel channel) {
+    return awaitOutboundResponse(channel, 1000);
+  }
+
+  private FullHttpResponse awaitOutboundResponse(EmbeddedChannel channel, long timeoutMs) {
+    long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+
+    while (System.nanoTime() < deadline) {
+      channel.runPendingTasks();
+      channel.runScheduledPendingTasks();
+
+      FullHttpResponse response = channel.readOutbound();
+      if (response != null) {
+        return response;
+      }
+
+      try {
+        Thread.sleep(10);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail("Interrupted while waiting for async response", e);
+      }
+    }
+
+    return null;
   }
 
   private FullHttpResponse sendGetRequest(EmbeddedChannel channel, String uri) {
@@ -136,7 +163,7 @@ class GatewayHandlerTest {
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
     channel.writeInbound(request);
 
-    FullHttpResponse response = channel.readOutbound();
+    FullHttpResponse response = awaitOutboundResponse(channel, 150);
     assertNull(response);
   }
 
@@ -182,7 +209,7 @@ class GatewayHandlerTest {
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
     HttpUtil.setKeepAlive(request, true);
     channel.writeInbound(request);
-    FullHttpResponse response = channel.readOutbound();
+    FullHttpResponse response = awaitOutboundResponse(channel);
 
     assertEquals("keep-alive", response.headers().get(HttpHeaderNames.CONNECTION));
     response.release();
@@ -196,7 +223,7 @@ class GatewayHandlerTest {
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
     HttpUtil.setKeepAlive(request, false);
     channel.writeInbound(request);
-    FullHttpResponse response = channel.readOutbound();
+    FullHttpResponse response = awaitOutboundResponse(channel);
 
     assertNull(response.headers().get(HttpHeaderNames.CONNECTION));
     response.release();
@@ -209,10 +236,9 @@ class GatewayHandlerTest {
 
     FullHttpRequest request = new DefaultFullHttpRequest(
         HttpVersion.HTTP_1_1, HttpMethod.POST, "/api/users",
-        Unpooled.copiedBuffer("{\"name\":\"test\"}", CharsetUtil.UTF_8)
-    );
+        Unpooled.copiedBuffer("{\"name\":\"test\"}", CharsetUtil.UTF_8));
     channel.writeInbound(request);
-    FullHttpResponse response = channel.readOutbound();
+    FullHttpResponse response = awaitOutboundResponse(channel);
 
     assertEquals(HttpResponseStatus.OK, response.status());
     String body = response.content().toString(CharsetUtil.UTF_8);
@@ -229,14 +255,14 @@ class GatewayHandlerTest {
     FullHttpRequest request1 = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
     HttpUtil.setKeepAlive(request1, true);
     channel.writeInbound(request1);
-    FullHttpResponse response1 = channel.readOutbound();
+    FullHttpResponse response1 = awaitOutboundResponse(channel);
     assertEquals(HttpResponseStatus.OK, response1.status());
     response1.release();
 
     FullHttpRequest request2 = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users/456");
     HttpUtil.setKeepAlive(request2, true);
     channel.writeInbound(request2);
-    FullHttpResponse response2 = channel.readOutbound();
+    FullHttpResponse response2 = awaitOutboundResponse(channel);
     assertEquals(HttpResponseStatus.OK, response2.status());
     response2.release();
   }
@@ -263,9 +289,9 @@ class GatewayHandlerTest {
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/dead");
     channel.writeInbound(request);
-    FullHttpResponse response = channel.readOutbound();
+    FullHttpResponse response = awaitOutboundResponse(channel);
 
-    assertEquals(HttpResponseStatus.NOT_FOUND, response.status());
+    assertEquals(HttpResponseStatus.BAD_GATEWAY, response.status());
     response.release();
   }
 }
