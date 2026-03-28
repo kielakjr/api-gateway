@@ -42,7 +42,7 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         return;
       }
       proxyClient.forwardRequest(route, msg).thenAccept(response -> {
-        writeResponse(ctx, msg, new String(response.getBody(), CharsetUtil.UTF_8));
+        writeResponse(ctx, msg, response.getStatusCode(), response.getContentType(), response.getBody() != null ? new String(response.getBody(), CharsetUtil.UTF_8) : null);
       }).exceptionally(throwable -> {
         throwable.printStackTrace();
         writeUpstreamErrorResponse(ctx);
@@ -57,19 +57,19 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     ctx.close();
   }
 
-  private void writeResponse(ChannelHandlerContext ctx, FullHttpRequest request, String content) {
+  private void writeResponse(ChannelHandlerContext ctx, FullHttpRequest request, int statusCode, String contentType, String content) {
     boolean keepAlive = HttpUtil.isKeepAlive(request);
 
     FullHttpResponse response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
-      HttpResponseStatus.OK,
+      HttpResponseStatus.valueOf(statusCode),
       Unpooled.copiedBuffer(content, CharsetUtil.UTF_8)
     );
 
     if (content == null) {
       response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
     } else {
-      response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+      response.headers().set(HttpHeaderNames.CONTENT_TYPE, contentType);
       response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
     }
 

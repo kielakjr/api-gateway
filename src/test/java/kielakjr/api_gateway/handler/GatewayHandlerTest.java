@@ -174,7 +174,7 @@ class GatewayHandlerTest {
 
     FullHttpResponse response = sendGetRequest(channel, "/api/users");
 
-    assertEquals("text/plain; charset=UTF-8", response.headers().get(HttpHeaderNames.CONTENT_TYPE));
+    assertEquals("application/json", response.headers().get(HttpHeaderNames.CONTENT_TYPE));
     response.release();
   }
 
