@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletionException;
+import kielakjr.api_gateway.config.ConnectionPoolConfig;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,7 +22,13 @@ class ProxyClientTest {
 
   private static HttpServer upstream;
   private static int port;
-  private final ProxyClient proxyClient = new ProxyClient();
+  private static ConnectionPoolConfig defaultPoolConfig() {
+    ConnectionPoolConfig config = new ConnectionPoolConfig();
+    config.setConnectTimeoutSeconds(5);
+    config.setRequestTimeoutSeconds(5);
+    return config;
+  }
+  private final ProxyClient proxyClient = new ProxyClient(defaultPoolConfig());
 
   @BeforeAll
   static void startUpstream() throws Exception {

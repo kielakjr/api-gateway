@@ -5,6 +5,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
+import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.config.RouteConfig;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.router.Router;
@@ -64,8 +65,15 @@ class GatewayHandlerTest {
     router = new Router(List.of(usersRoute));
   }
 
+  private static ConnectionPoolConfig defaultPoolConfig() {
+    ConnectionPoolConfig config = new ConnectionPoolConfig();
+    config.setConnectTimeoutSeconds(5);
+    config.setRequestTimeoutSeconds(5);
+    return config;
+  }
+
   private EmbeddedChannel createChannel(FilterChain filterChain) {
-    return new EmbeddedChannel(new GatewayHandler(router, filterChain));
+    return new EmbeddedChannel(new GatewayHandler(router, filterChain, defaultPoolConfig()));
   }
 
   private FullHttpResponse sendRequest(EmbeddedChannel channel, HttpMethod method, String uri) {
@@ -285,7 +293,7 @@ class GatewayHandlerTest {
     Router deadRouter = new Router(List.of(deadRoute));
 
     FilterChain chain = new FilterChain(List.of());
-    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(deadRouter, chain));
+    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(deadRouter, chain, defaultPoolConfig()));
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/dead");
     channel.writeInbound(request);
