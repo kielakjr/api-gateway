@@ -5,11 +5,15 @@ routes:
   - path: /api/users
     upstreams:
       - http://localhost:9001
+      - http://localhost:9002
   - path: /api/orders
     upstreams:
       - http://localhost:9002
+      - http://localhost:9003
   - path: /api/payments
     upstreams:
       - http://localhost:9003
+      - http://localhost:9001
 
 rateLimitPerMinute: 60
+loadBalancerStrategy: round-robin

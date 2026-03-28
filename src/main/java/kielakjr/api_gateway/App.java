@@ -26,7 +26,7 @@ public class App {
       }
     }
 
-    GatewayServer server = new GatewayServer(config.getServer().getPort(), config.getRoutes(), config.getRateLimitPerMinute());
+    GatewayServer server = new GatewayServer(config.getServer().getPort(), config.getRoutes(), config.getRateLimitPerMinute(), config.getLoadBalancerStrategy());
     server.run();
   }
 

@@ -14,12 +14,16 @@ import io.github.cdimascio.dotenv.Dotenv;
 import io.netty.bootstrap.ServerBootstrap;
 
 import java.util.List;
+
+import org.snakeyaml.engine.v2.api.Load;
+
 import kielakjr.api_gateway.config.RouteConfig;
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.filter.LoggingFilter;
 import kielakjr.api_gateway.filter.AuthFilter;
 import kielakjr.api_gateway.filter.RateLimitFilter;
+import kielakjr.api_gateway.loadbalancer.LoadBalancerStrategy;
 
 public class GatewayServer {
 
@@ -28,9 +32,9 @@ public class GatewayServer {
   private final FilterChain filterChain;
 
 
-  public GatewayServer(int port, List<RouteConfig> routes, int rateLimitPerMinute) {
+  public GatewayServer(int port, List<RouteConfig> routes, int rateLimitPerMinute, LoadBalancerStrategy loadBalancerStrategy) {
     this.port = port;
-    this.router = new Router(routes);
+    this.router = new Router(routes, loadBalancerStrategy);
     Dotenv dotenv = Dotenv.load();
     this.filterChain = new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(rateLimitPerMinute)));
   }
