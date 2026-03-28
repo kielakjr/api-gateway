@@ -11,6 +11,10 @@ public class Router {
   private List<RouteConfig> routes;
   private LoadBalancer loadBalancer;
 
+  public Router(List<RouteConfig> routes) {
+    this(routes, LoadBalancerStrategy.ROUND_ROBIN);
+  }
+
   public Router(List<RouteConfig> routes, LoadBalancerStrategy loadBalancerStrategy) {
     this.routes = routes;
     this.loadBalancer = switch (loadBalancerStrategy) {
@@ -20,7 +24,7 @@ public class Router {
     };
   }
 
-  public String resolve(String path) {
+  public String resolve(String path) throws IllegalStateException {
     if (routes == null || routes.isEmpty()) {
       throw new IllegalStateException("No routes configured");
     }

@@ -85,9 +85,7 @@ class RouterTest {
   void resolve_emptyRoutes_returnsEmpty() {
     Router emptyRouter = new Router(List.of());
 
-    String result = emptyRouter.resolve("/api/users");
-
-    assertNull(result);
+    assertThrows(IllegalStateException.class, () -> emptyRouter.resolve("/api/users"));
   }
 
   @Test
