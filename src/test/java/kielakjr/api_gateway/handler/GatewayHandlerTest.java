@@ -1,5 +1,6 @@
 package kielakjr.api_gateway.handler;
 
+import com.sun.net.httpserver.HttpServer;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.*;
@@ -7,22 +8,58 @@ import io.netty.util.CharsetUtil;
 import kielakjr.api_gateway.config.RouteConfig;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.router.Router;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class GatewayHandlerTest {
 
+  private static HttpServer upstream;
+  private static int upstreamPort;
   private Router router;
+
+  @BeforeAll
+  static void startUpstream() throws Exception {
+    upstream = HttpServer.create(new InetSocketAddress(0), 0);
+    upstreamPort = upstream.getAddress().getPort();
+
+    upstream.createContext("/", exchange -> {
+      String method = exchange.getRequestMethod();
+      String path = exchange.getRequestURI().toString();
+      byte[] requestBody = exchange.getRequestBody().readAllBytes();
+
+      String response = String.format(
+          "{\"method\":\"%s\",\"path\":\"%s\",\"bodyLength\":%d}",
+          method, path, requestBody.length
+      );
+
+      byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+      exchange.getResponseHeaders().set("Content-Type", "application/json");
+      exchange.sendResponseHeaders(200, bytes.length);
+      exchange.getResponseBody().write(bytes);
+      exchange.close();
+    });
+
+    upstream.start();
+  }
+
+  @AfterAll
+  static void stopUpstream() {
+    upstream.stop(0);
+  }
 
   @BeforeEach
   void setUp() {
     RouteConfig usersRoute = new RouteConfig();
     usersRoute.setPath("/api/users");
-    usersRoute.setUpstreams(List.of("http://localhost:9001"));
+    usersRoute.setUpstreams(List.of("http://localhost:" + upstreamPort));
 
     router = new Router(List.of(usersRoute));
   }
@@ -31,10 +68,14 @@ class GatewayHandlerTest {
     return new EmbeddedChannel(new GatewayHandler(router, filterChain));
   }
 
-  private FullHttpResponse sendRequest(EmbeddedChannel channel, String uri) {
-    FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri);
+  private FullHttpResponse sendRequest(EmbeddedChannel channel, HttpMethod method, String uri) {
+    FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, method, uri);
     channel.writeInbound(request);
     return channel.readOutbound();
+  }
+
+  private FullHttpResponse sendGetRequest(EmbeddedChannel channel, String uri) {
+    return sendRequest(channel, HttpMethod.GET, uri);
   }
 
   @Test
@@ -42,10 +83,36 @@ class GatewayHandlerTest {
     FilterChain chain = new FilterChain(List.of());
     EmbeddedChannel channel = createChannel(chain);
 
-    FullHttpResponse response = sendRequest(channel, "/api/users");
+    FullHttpResponse response = sendGetRequest(channel, "/api/users");
 
     assertEquals(HttpResponseStatus.OK, response.status());
-    assertEquals("http://localhost:9001", response.content().toString(CharsetUtil.UTF_8));
+    String body = response.content().toString(CharsetUtil.UTF_8);
+    assertTrue(body.contains("\"method\":\"GET\""));
+    response.release();
+  }
+
+  @Test
+  void channelRead0_proxiedResponse_containsUpstreamPath() {
+    FilterChain chain = new FilterChain(List.of());
+    EmbeddedChannel channel = createChannel(chain);
+
+    FullHttpResponse response = sendGetRequest(channel, "/api/users");
+
+    String body = response.content().toString(CharsetUtil.UTF_8);
+    assertTrue(body.contains("\"path\":\"/api/users\""));
+    response.release();
+  }
+
+  @Test
+  void channelRead0_subpath_forwardsFullUri() {
+    FilterChain chain = new FilterChain(List.of());
+    EmbeddedChannel channel = createChannel(chain);
+
+    FullHttpResponse response = sendGetRequest(channel, "/api/users/123");
+
+    assertEquals(HttpResponseStatus.OK, response.status());
+    String body = response.content().toString(CharsetUtil.UTF_8);
+    assertTrue(body.contains("\"path\":\"/api/users/123\""));
     response.release();
   }
 
@@ -54,7 +121,7 @@ class GatewayHandlerTest {
     FilterChain chain = new FilterChain(List.of());
     EmbeddedChannel channel = createChannel(chain);
 
-    FullHttpResponse response = sendRequest(channel, "/unknown");
+    FullHttpResponse response = sendGetRequest(channel, "/unknown");
 
     assertEquals(HttpResponseStatus.NOT_FOUND, response.status());
     assertEquals(0, response.content().readableBytes());
@@ -78,7 +145,7 @@ class GatewayHandlerTest {
     FilterChain chain = new FilterChain(List.of());
     EmbeddedChannel channel = createChannel(chain);
 
-    FullHttpResponse response = sendRequest(channel, "/api/users");
+    FullHttpResponse response = sendGetRequest(channel, "/api/users");
 
     assertEquals("text/plain; charset=UTF-8", response.headers().get(HttpHeaderNames.CONTENT_TYPE));
     response.release();
@@ -89,10 +156,10 @@ class GatewayHandlerTest {
     FilterChain chain = new FilterChain(List.of());
     EmbeddedChannel channel = createChannel(chain);
 
-    FullHttpResponse response = sendRequest(channel, "/api/users");
+    FullHttpResponse response = sendGetRequest(channel, "/api/users");
 
-    int expectedLength = "http://localhost:9001".length();
-    assertEquals(expectedLength, response.headers().getInt(HttpHeaderNames.CONTENT_LENGTH));
+    int contentLength = response.headers().getInt(HttpHeaderNames.CONTENT_LENGTH);
+    assertEquals(response.content().readableBytes(), contentLength);
     response.release();
   }
 
@@ -101,7 +168,7 @@ class GatewayHandlerTest {
     FilterChain chain = new FilterChain(List.of());
     EmbeddedChannel channel = createChannel(chain);
 
-    FullHttpResponse response = sendRequest(channel, "/unknown");
+    FullHttpResponse response = sendGetRequest(channel, "/unknown");
 
     assertEquals(0, response.headers().getInt(HttpHeaderNames.CONTENT_LENGTH));
     response.release();
@@ -122,7 +189,7 @@ class GatewayHandlerTest {
   }
 
   @Test
-  void channelRead0_notKeepAlive_closesConnection() {
+  void channelRead0_notKeepAlive_noConnectionHeader() {
     FilterChain chain = new FilterChain(List.of());
     EmbeddedChannel channel = createChannel(chain);
 
@@ -136,18 +203,7 @@ class GatewayHandlerTest {
   }
 
   @Test
-  void channelRead0_subpathMatch_returns200() {
-    FilterChain chain = new FilterChain(List.of());
-    EmbeddedChannel channel = createChannel(chain);
-
-    FullHttpResponse response = sendRequest(channel, "/api/users/123");
-
-    assertEquals(HttpResponseStatus.OK, response.status());
-    response.release();
-  }
-
-  @Test
-  void channelRead0_postWithBody_returns200() {
+  void channelRead0_postWithBody_forwardsToUpstream() {
     FilterChain chain = new FilterChain(List.of());
     EmbeddedChannel channel = createChannel(chain);
 
@@ -159,6 +215,9 @@ class GatewayHandlerTest {
     FullHttpResponse response = channel.readOutbound();
 
     assertEquals(HttpResponseStatus.OK, response.status());
+    String body = response.content().toString(CharsetUtil.UTF_8);
+    assertTrue(body.contains("\"method\":\"POST\""));
+    assertTrue(body.contains("\"bodyLength\":15"));
     response.release();
   }
 
@@ -190,5 +249,23 @@ class GatewayHandlerTest {
     channel.pipeline().fireExceptionCaught(new RuntimeException("test error"));
 
     assertFalse(channel.isActive());
+  }
+
+  @Test
+  void channelRead0_unreachableUpstream_returns404() {
+    RouteConfig deadRoute = new RouteConfig();
+    deadRoute.setPath("/api/dead");
+    deadRoute.setUpstreams(List.of("http://localhost:1"));
+    Router deadRouter = new Router(List.of(deadRoute));
+
+    FilterChain chain = new FilterChain(List.of());
+    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(deadRouter, chain));
+
+    FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/dead");
+    channel.writeInbound(request);
+    FullHttpResponse response = channel.readOutbound();
+
+    assertEquals(HttpResponseStatus.NOT_FOUND, response.status());
+    response.release();
   }
 }
