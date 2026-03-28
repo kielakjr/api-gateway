@@ -2,17 +2,22 @@ package kielakjr.api_gateway.router;
 
 import kielakjr.api_gateway.config.RouteConfig;
 import java.util.List;
+import kielakjr.api_gateway.loadbalancer.LoadBalancer;
 import kielakjr.api_gateway.loadbalancer.LoadBalancerStrategy;
 import kielakjr.api_gateway.loadbalancer.RoundRobinLoadBalancer;
 import kielakjr.api_gateway.loadbalancer.WeightedRandomLoadBalancer;
 
 public class Router {
   private List<RouteConfig> routes;
-  private LoadBalancerStrategy loadBalancerStrategy;
+  private LoadBalancer loadBalancer;
 
   public Router(List<RouteConfig> routes, LoadBalancerStrategy loadBalancerStrategy) {
     this.routes = routes;
-    this.loadBalancerStrategy = loadBalancerStrategy;
+    this.loadBalancer = switch (loadBalancerStrategy) {
+      case ROUND_ROBIN -> new RoundRobinLoadBalancer();
+      case WEIGHTED_RANDOM -> new WeightedRandomLoadBalancer();
+      default -> throw new IllegalStateException("Unsupported load balancer strategy: " + loadBalancerStrategy);
+    };
   }
 
   public String resolve(String path) {
@@ -25,14 +30,7 @@ public class Router {
         if (upstreams == null || upstreams.isEmpty()) {
           throw new IllegalStateException("No upstream servers configured for route: " + route.getPath());
         }
-        switch (loadBalancerStrategy) {
-          case ROUND_ROBIN:
-            return new RoundRobinLoadBalancer().nextUpstream(upstreams);
-          case WEIGHTED_RANDOM:
-            return new WeightedRandomLoadBalancer().nextUpstream(upstreams);
-          default:
-            throw new IllegalStateException("Unsupported load balancer strategy: " + loadBalancerStrategy);
-        }
+        return loadBalancer.nextUpstream(upstreams);
       }
     }
     return null;
