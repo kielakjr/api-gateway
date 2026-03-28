@@ -25,7 +25,10 @@ public class FilterChain {
   }
 
   private String getClientId(ChannelHandlerContext ctx) {
-    InetSocketAddress socketAddress = (InetSocketAddress) ctx.channel().remoteAddress();
-    return socketAddress.getHostString();
+    var remoteAddress = ctx.channel().remoteAddress();
+    if (remoteAddress instanceof InetSocketAddress inetSocketAddress) {
+      return inetSocketAddress.getHostString();
+    }
+    return "unknown";
   }
 }

@@ -21,6 +21,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import kielakjr.api_gateway.context.RequestContext;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -61,7 +62,7 @@ class AuthFilterTest {
     EmbeddedChannel channel = new EmbeddedChannel(new ChannelInboundHandlerAdapter() {
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        result.set(authFilter.apply(ctx, requestRef.get()));
+        result.set(authFilter.apply(ctx, requestRef.get(), new RequestContext("127.0.0.1")));
       }
     });
 
@@ -193,7 +194,7 @@ class AuthFilterTest {
     EmbeddedChannel channel = new EmbeddedChannel(new ChannelInboundHandlerAdapter() {
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        result.set(nullSecretFilter.apply(ctx, request));
+        result.set(nullSecretFilter.apply(ctx, request, new RequestContext("127.0.0.1")));
       }
     });
     channel.writeInbound(request);

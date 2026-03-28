@@ -7,17 +7,19 @@ import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
+import kielakjr.api_gateway.context.RequestContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class FilterChainTest {
 
-  private boolean executeChain(FilterChain chain, FullHttpRequest request) {
-    AtomicBoolean result = new AtomicBoolean();
+  private RequestContext executeChain(FilterChain chain, FullHttpRequest request) {
+    AtomicReference<RequestContext> result = new AtomicReference<>();
     EmbeddedChannel channel = new EmbeddedChannel(new ChannelInboundHandlerAdapter() {
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -33,44 +35,44 @@ class FilterChainTest {
   }
 
   @Test
-  void execute_emptyChain_returnsTrue() {
+  void execute_emptyChain_returnsNonNull() {
     FilterChain chain = new FilterChain(List.of());
 
-    assertTrue(executeChain(chain, createRequest()));
+    assertNotNull(executeChain(chain, createRequest()));
   }
 
   @Test
-  void execute_allFiltersPass_returnsTrue() {
-    Filter passing1 = (c, r) -> true;
-    Filter passing2 = (c, r) -> true;
+  void execute_allFiltersPass_returnsNonNull() {
+    Filter passing1 = (c, r, rctx) -> true;
+    Filter passing2 = (c, r, rctx) -> true;
     FilterChain chain = new FilterChain(List.of(passing1, passing2));
 
-    assertTrue(executeChain(chain, createRequest()));
+    assertNotNull(executeChain(chain, createRequest()));
   }
 
   @Test
-  void execute_firstFilterFails_returnsFalse() {
-    Filter failing = (c, r) -> false;
-    Filter passing = (c, r) -> true;
+  void execute_firstFilterFails_returnsNull() {
+    Filter failing = (c, r, rctx) -> false;
+    Filter passing = (c, r, rctx) -> true;
     FilterChain chain = new FilterChain(List.of(failing, passing));
 
-    assertFalse(executeChain(chain, createRequest()));
+    assertNull(executeChain(chain, createRequest()));
   }
 
   @Test
-  void execute_secondFilterFails_returnsFalse() {
-    Filter passing = (c, r) -> true;
-    Filter failing = (c, r) -> false;
+  void execute_secondFilterFails_returnsNull() {
+    Filter passing = (c, r, rctx) -> true;
+    Filter failing = (c, r, rctx) -> false;
     FilterChain chain = new FilterChain(List.of(passing, failing));
 
-    assertFalse(executeChain(chain, createRequest()));
+    assertNull(executeChain(chain, createRequest()));
   }
 
   @Test
   void execute_shortCircuits_doesNotCallFiltersAfterFailure() {
     AtomicBoolean secondCalled = new AtomicBoolean(false);
-    Filter failing = (c, r) -> false;
-    Filter second = (c, r) -> { secondCalled.set(true); return true; };
+    Filter failing = (c, r, rctx) -> false;
+    Filter second = (c, r, rctx) -> { secondCalled.set(true); return true; };
     FilterChain chain = new FilterChain(List.of(failing, second));
 
     executeChain(chain, createRequest());
@@ -81,9 +83,9 @@ class FilterChainTest {
   @Test
   void execute_callsFiltersInOrder() {
     StringBuilder order = new StringBuilder();
-    Filter first = (c, r) -> { order.append("1"); return true; };
-    Filter second = (c, r) -> { order.append("2"); return true; };
-    Filter third = (c, r) -> { order.append("3"); return true; };
+    Filter first = (c, r, rctx) -> { order.append("1"); return true; };
+    Filter second = (c, r, rctx) -> { order.append("2"); return true; };
+    Filter third = (c, r, rctx) -> { order.append("3"); return true; };
     FilterChain chain = new FilterChain(List.of(first, second, third));
 
     executeChain(chain, createRequest());

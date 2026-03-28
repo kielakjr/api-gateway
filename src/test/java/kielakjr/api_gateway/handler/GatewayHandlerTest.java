@@ -157,7 +157,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_filterRejects_noResponseFromHandler() {
-    FilterChain chain = new FilterChain(List.of((ctx, req) -> false));
+    FilterChain chain = new FilterChain(List.of((ctx, req, rctx) -> false));
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");

@@ -10,6 +10,7 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.CharsetUtil;
+import kielakjr.api_gateway.context.RequestContext;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
@@ -36,14 +37,19 @@ class RateLimitFilterTest {
   }
 
   private FilterResult applyFilter(RateLimitFilter filter, FullHttpRequest request) {
+    return applyFilter(filter, request, "127.0.0.1");
+  }
+
+  private FilterResult applyFilter(RateLimitFilter filter, FullHttpRequest request, String clientIp) {
     AtomicBoolean result = new AtomicBoolean();
+    RequestContext rctx = new RequestContext(clientIp);
 
     EmbeddedChannelWithAddress channel = new EmbeddedChannelWithAddress(
-        new InetSocketAddress("127.0.0.1", 12345),
+        new InetSocketAddress(clientIp, 12345),
         new ChannelInboundHandlerAdapter() {
           @Override
           public void channelRead(ChannelHandlerContext ctx, Object msg) {
-            result.set(filter.apply(ctx, request));
+            result.set(filter.apply(ctx, request, rctx));
           }
         }
     );
@@ -110,35 +116,13 @@ class RateLimitFilterTest {
   void apply_differentClients_trackedSeparately() {
     RateLimitFilter filter = new RateLimitFilter(1);
 
-    AtomicBoolean result1 = new AtomicBoolean();
-    EmbeddedChannelWithAddress client1Channel = new EmbeddedChannelWithAddress(
-        new InetSocketAddress("10.0.0.1", 1111),
-        new ChannelInboundHandlerAdapter() {
-          @Override
-          public void channelRead(ChannelHandlerContext ctx, Object msg) {
-            result1.set(filter.apply(ctx, createRequest()));
-          }
-        }
-    );
-    client1Channel.writeInbound(createRequest());
-    assertTrue(result1.get());
-    FullHttpResponse resp1 = client1Channel.readOutbound();
-    if (resp1 != null) resp1.release();
+    FilterResult result1 = applyFilter(filter, createRequest(), "10.0.0.1");
+    assertTrue(result1.passed());
+    if (result1.response() != null) result1.response().release();
 
-    AtomicBoolean result2 = new AtomicBoolean();
-    EmbeddedChannelWithAddress client2Channel = new EmbeddedChannelWithAddress(
-        new InetSocketAddress("10.0.0.2", 2222),
-        new ChannelInboundHandlerAdapter() {
-          @Override
-          public void channelRead(ChannelHandlerContext ctx, Object msg) {
-            result2.set(filter.apply(ctx, createRequest()));
-          }
-        }
-    );
-    client2Channel.writeInbound(createRequest());
-    assertTrue(result2.get(), "Different client should have its own rate limit");
-    FullHttpResponse resp2 = client2Channel.readOutbound();
-    if (resp2 != null) resp2.release();
+    FilterResult result2 = applyFilter(filter, createRequest(), "10.0.0.2");
+    assertTrue(result2.passed(), "Different client should have its own rate limit");
+    if (result2.response() != null) result2.response().release();
   }
 
   @Test

@@ -7,6 +7,7 @@ import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
+import kielakjr.api_gateway.context.RequestContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,7 +21,7 @@ class LoggingFilterTest {
     EmbeddedChannel channel = new EmbeddedChannel(new ChannelInboundHandlerAdapter() {
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        result.set(filter.apply(ctx, request));
+        result.set(filter.apply(ctx, request, new RequestContext("127.0.0.1")));
       }
     });
     channel.writeInbound(request);
