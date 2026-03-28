@@ -7,8 +7,7 @@ import kielakjr.api_gateway.config.ConfigLoader;
 public class App {
   public static void main(String[] args) throws Exception {
     GatewayConfig config = new ConfigLoader().loadConfig("config.yaml");
-    GatewayServer server = new GatewayServer(config.getServer().getPort(), config.getRoutes());
+    GatewayServer server = new GatewayServer(config.getServer().getPort(), config.getRoutes(), config.getRateLimitPerMinute());
     server.run();
-
   }
 }

@@ -4,6 +4,7 @@ import java.util.List;
 public class GatewayConfig {
   private ServerConfig server;
   private List<RouteConfig> routes;
+  private int rateLimitPerMinute;
 
   public ServerConfig getServer() {
     return server;
@@ -19,5 +20,13 @@ public class GatewayConfig {
 
   public void setRoutes(List<RouteConfig> routes) {
     this.routes = routes;
+  }
+
+  public int getRateLimitPerMinute() {
+    return rateLimitPerMinute;
+  }
+
+  public void setRateLimitPerMinute(int rateLimitPerMinute) {
+    this.rateLimitPerMinute = rateLimitPerMinute;
   }
 }

@@ -11,3 +11,5 @@ routes:
   - path: /api/payments
     upstreams:
       - http://localhost:9003
+
+rateLimitPerMinute: 60

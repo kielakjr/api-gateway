@@ -28,11 +28,11 @@ public class GatewayServer {
   private final FilterChain filterChain;
 
 
-  public GatewayServer(int port, List<RouteConfig> routes) {
+  public GatewayServer(int port, List<RouteConfig> routes, int rateLimitPerMinute) {
     this.port = port;
     this.router = new Router(routes);
     Dotenv dotenv = Dotenv.load();
-    this.filterChain = new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(2)));
+    this.filterChain = new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(rateLimitPerMinute)));
   }
 
   public void run() throws Exception {
