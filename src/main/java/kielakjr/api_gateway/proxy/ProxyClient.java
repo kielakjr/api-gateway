@@ -3,16 +3,27 @@ package kielakjr.api_gateway.proxy;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.FullHttpRequest;
+import kielakjr.api_gateway.config.ConnectionPoolConfig;
 
 import java.net.URI;
 
 
 public class ProxyClient {
-  private final HttpClient client = HttpClient.newHttpClient();
+  private HttpClient client;
+  private int requestTimeoutSeconds;
+
+  public ProxyClient(ConnectionPoolConfig config) {
+    this.client = HttpClient.newBuilder()
+        .version(HttpClient.Version.HTTP_1_1)
+        .connectTimeout(Duration.ofSeconds(config.getConnectTimeoutSeconds()))
+        .build();
+    this.requestTimeoutSeconds = config.getRequestTimeoutSeconds();
+  }
 
   public CompletableFuture<ProxyResponse> forwardRequest(String url, FullHttpRequest msg) {
     ByteBuf content = msg.content();
@@ -20,7 +31,8 @@ public class ProxyClient {
     content.readBytes(bodyBytes);
     HttpRequest.Builder requestBuild = HttpRequest.newBuilder()
         .uri(URI.create(url + msg.uri()))
-        .method(msg.method().name(), HttpRequest.BodyPublishers.ofByteArray(bodyBytes));
+        .method(msg.method().name(), HttpRequest.BodyPublishers.ofByteArray(bodyBytes))
+        .timeout(Duration.ofSeconds(requestTimeoutSeconds));
 
     msg.headers().forEach(header -> {
       String name = header.getKey();

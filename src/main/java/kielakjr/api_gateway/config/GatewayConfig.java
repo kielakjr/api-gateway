@@ -8,6 +8,7 @@ public class GatewayConfig {
   private List<RouteConfig> routes;
   private int rateLimitPerMinute;
   private LoadBalancerStrategy loadBalancerStrategy;
+  private ConnectionPoolConfig connectionPool;
 
   public ServerConfig getServer() {
     return server;
@@ -39,5 +40,13 @@ public class GatewayConfig {
 
   public void setLoadBalancerStrategy(LoadBalancerStrategy loadBalancerStrategy) {
     this.loadBalancerStrategy = loadBalancerStrategy;
+  }
+
+  public ConnectionPoolConfig getConnectionPool() {
+    return connectionPool;
+  }
+
+  public void setConnectionPool(ConnectionPoolConfig connectionPool) {
+    this.connectionPool = connectionPool;
   }
 }

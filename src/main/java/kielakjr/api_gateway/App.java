@@ -15,7 +15,6 @@ import com.sun.net.httpserver.HttpServer;
 public class App {
   public static void main(String[] args) throws Exception {
     GatewayConfig config = new ConfigLoader().loadConfig("config.yaml");
-
     Set<Integer> startedPorts = new HashSet<>();
     for (var route : config.getRoutes()) {
       for (String upstream : route.getUpstreams()) {
@@ -26,7 +25,7 @@ public class App {
       }
     }
 
-    GatewayServer server = new GatewayServer(config.getServer().getPort(), config.getRoutes(), config.getRateLimitPerMinute(), config.getLoadBalancerStrategy());
+    GatewayServer server = new GatewayServer(config);
     server.run();
   }
 

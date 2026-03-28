@@ -17,16 +17,18 @@ import io.netty.util.CharsetUtil;
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.proxy.ProxyClient;
+import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.context.RequestContext;
 
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
   private Router router;
   private FilterChain filterChain;
-  private final ProxyClient proxyClient = new ProxyClient();
+  private ProxyClient proxyClient;
 
-  public GatewayHandler(Router router, FilterChain filterChain) {
+  public GatewayHandler(Router router, FilterChain filterChain, ConnectionPoolConfig connectionPoolConfig) {
     this.router = router;
     this.filterChain = filterChain;
+    this.proxyClient = new ProxyClient(connectionPoolConfig);
   }
 
   @Override

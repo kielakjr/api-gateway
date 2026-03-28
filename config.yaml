@@ -17,3 +17,6 @@ routes:
 
 rateLimitPerMinute: 60
 loadBalancerStrategy: round-robin
+connectionPool:
+  connectTimeoutSeconds: 5
+  requestTimeoutSeconds: 10
