@@ -7,6 +7,7 @@ import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
 import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.config.CircuitBreakerConfig;
+import kielakjr.api_gateway.config.RetryPolicyConfig;
 import kielakjr.api_gateway.config.RouteConfig;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.proxy.ProxyClient;
@@ -74,7 +75,11 @@ class GatewayHandlerTest {
     CircuitBreakerConfig cbConfig = new CircuitBreakerConfig();
     cbConfig.setFailureThreshold(5);
     cbConfig.setRecoveryTimeMs(30000);
-    return new ProxyClient(poolConfig, cbConfig);
+    RetryPolicyConfig retryConfig = new RetryPolicyConfig();
+    retryConfig.setMaxRetries(3);
+    retryConfig.setInitialDelayMs(100);
+    retryConfig.setBackoffMultiplier(2.0);
+    return new ProxyClient(poolConfig, cbConfig, retryConfig);
   }
 
   private EmbeddedChannel createChannel(FilterChain filterChain) {

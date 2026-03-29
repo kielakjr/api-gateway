@@ -36,7 +36,7 @@ public class GatewayServer {
     this.router = new Router(config.getRoutes(), config.getLoadBalancerStrategy());
     Dotenv dotenv = Dotenv.load();
     this.filterChain = new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(config.getRateLimitPerMinute())));
-    this.proxyClient = new ProxyClient(config.getConnectionPool(), config.getCircuitBreaker());
+    this.proxyClient = new ProxyClient(config.getConnectionPool(), config.getCircuitBreaker(), config.getRetryPolicy());
   }
 
   public void run() throws Exception {

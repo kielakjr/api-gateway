@@ -10,6 +10,7 @@ public class GatewayConfig {
   private LoadBalancerStrategy loadBalancerStrategy;
   private ConnectionPoolConfig connectionPool;
   private CircuitBreakerConfig circuitBreaker;
+  private RetryPolicyConfig retryPolicy;
 
   public ServerConfig getServer() {
     return server;
@@ -57,5 +58,13 @@ public class GatewayConfig {
 
   public void setCircuitBreaker(CircuitBreakerConfig circuitBreaker) {
     this.circuitBreaker = circuitBreaker;
+  }
+
+  public RetryPolicyConfig getRetryPolicy() {
+    return retryPolicy;
+  }
+
+  public void setRetryPolicy(RetryPolicyConfig retryPolicy) {
+    this.retryPolicy = retryPolicy;
   }
 }

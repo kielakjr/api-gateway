@@ -26,3 +26,8 @@ connectionPool:
 circuitBreaker:
   failureThreshold: 5
   recoveryTimeMs: 30000
+
+retryPolicy:
+  maxRetries: 3
+  initialDelayMs: 1000
+  backoffMultiplier: 2.0

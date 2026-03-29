@@ -15,20 +15,23 @@ import kielakjr.api_gateway.config.CircuitBreakerConfig;
 import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.resilience.CircuitBreaker;
 import kielakjr.api_gateway.resilience.CircuitBreakerOpenException;
-
+import kielakjr.api_gateway.resilience.RetryPolicy;
+import kielakjr.api_gateway.config.RetryPolicyConfig;
 
 public class ProxyClient {
   private HttpClient client;
   private int requestTimeoutSeconds;
   private final Map<String, CircuitBreaker> circuitBreakers = new ConcurrentHashMap<>();
   private final CircuitBreakerConfig circuitBreakerConfig;
+  private final RetryPolicy retryPolicy;
 
-  public ProxyClient(ConnectionPoolConfig config, CircuitBreakerConfig cbConfig) {
+  public ProxyClient(ConnectionPoolConfig config, CircuitBreakerConfig cbConfig, RetryPolicyConfig retryConfig) {
     this.client = HttpClient.newBuilder()
         .version(HttpClient.Version.HTTP_1_1)
         .connectTimeout(Duration.ofSeconds(config.getConnectTimeoutSeconds()))
         .build();
     this.requestTimeoutSeconds = config.getRequestTimeoutSeconds();
+    this.retryPolicy = new RetryPolicy(retryConfig.getMaxRetries(), retryConfig.getInitialDelayMs(), retryConfig.getBackoffMultiplier());
     this.circuitBreakerConfig = cbConfig;
   }
 
@@ -60,6 +63,19 @@ public class ProxyClient {
     }
     HttpRequest request = requestBuild.build();
 
+    String method = msg.method().name();
+    boolean isIdempotent = method.equals("GET") || method.equals("HEAD") || method.equals("PUT") || method.equals("DELETE") || method.equals("OPTIONS") || method.equals("TRACE");
+
+    if (isIdempotent) {
+      return sendRequest(request, circuitBreaker);
+    } else {
+      return retryPolicy.execute(() -> sendRequest(request, circuitBreaker));
+    }
+
+  }
+
+  private CompletableFuture<ProxyResponse> sendRequest(HttpRequest request, CircuitBreaker circuitBreaker) {
+
     CompletableFuture<ProxyResponse> responseFuture = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
                                                             .thenApply(response -> {
                                                               if (response.statusCode() >= 500) {
@@ -76,5 +92,5 @@ public class ProxyClient {
 
     return responseFuture;
   }
-}
 
+}
