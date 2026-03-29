@@ -24,7 +24,6 @@ public class RetryPolicy {
 
   public CompletableFuture<ProxyResponse> executeWithRetry(Supplier<CompletableFuture<ProxyResponse>> action, int currentAttempt, long delay) {
     Executor delayedExecutor = CompletableFuture.delayedExecutor(delay, TimeUnit.MILLISECONDS);
-    System.out.println("Attempt: " + currentAttempt + ", delay: " + delay + "ms");
     return CompletableFuture.supplyAsync(() -> null, delayedExecutor)
         .thenCompose(ignored -> action.get())
         .exceptionallyCompose(throwable -> {

@@ -11,6 +11,7 @@ public class GatewayConfig {
   private ConnectionPoolConfig connectionPool;
   private CircuitBreakerConfig circuitBreaker;
   private RetryPolicyConfig retryPolicy;
+  private TimeoutsConfig timeouts;
 
   public ServerConfig getServer() {
     return server;
@@ -66,5 +67,13 @@ public class GatewayConfig {
 
   public void setRetryPolicy(RetryPolicyConfig retryPolicy) {
     this.retryPolicy = retryPolicy;
+  }
+
+  public TimeoutsConfig getTimeouts() {
+    return timeouts;
+  }
+
+  public void setTimeouts(TimeoutsConfig timeouts) {
+    this.timeouts = timeouts;
   }
 }

@@ -7,6 +7,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
 import kielakjr.api_gateway.handler.GatewayHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.ChannelOption;
@@ -14,6 +16,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 import io.netty.bootstrap.ServerBootstrap;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import kielakjr.api_gateway.config.GatewayConfig;
 import kielakjr.api_gateway.router.Router;
@@ -22,6 +25,7 @@ import kielakjr.api_gateway.filter.LoggingFilter;
 import kielakjr.api_gateway.proxy.ProxyClient;
 import kielakjr.api_gateway.filter.AuthFilter;
 import kielakjr.api_gateway.filter.RateLimitFilter;
+import kielakjr.api_gateway.config.TimeoutsConfig;
 
 public class GatewayServer {
 
@@ -29,6 +33,7 @@ public class GatewayServer {
   private final Router router;
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
+  private final TimeoutsConfig timeoutsConfig;
 
 
   public GatewayServer(GatewayConfig config) {
@@ -37,6 +42,7 @@ public class GatewayServer {
     Dotenv dotenv = Dotenv.load();
     this.filterChain = new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(config.getRateLimitPerMinute())));
     this.proxyClient = new ProxyClient(config.getConnectionPool(), config.getCircuitBreaker(), config.getRetryPolicy());
+    this.timeoutsConfig = config.getTimeouts();
   }
 
   public void run() throws Exception {
@@ -51,6 +57,8 @@ public class GatewayServer {
           public void initChannel(SocketChannel ch) throws Exception {
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
+            ch.pipeline().addLast(new ReadTimeoutHandler(timeoutsConfig.getReadSeconds(), TimeUnit.SECONDS));
+            ch.pipeline().addLast(new WriteTimeoutHandler(timeoutsConfig.getWriteSeconds(), TimeUnit.SECONDS));
             ch.pipeline().addLast(new GatewayHandler(router, filterChain, proxyClient));
           }
         })

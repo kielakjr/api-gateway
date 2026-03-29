@@ -31,3 +31,7 @@ retryPolicy:
   maxRetries: 3
   initialDelayMs: 1000
   backoffMultiplier: 2.0
+
+timeouts:
+  readSeconds: 30
+  writeSeconds: 30
