@@ -9,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.FullHttpRequest;
 import kielakjr.api_gateway.config.ConnectionPoolConfig;
+import kielakjr.api_gateway.config.CircuitBreakerConfig;
 import kielakjr.api_gateway.resilience.CircuitBreaker;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,17 +21,19 @@ public class ProxyClient {
   private HttpClient client;
   private int requestTimeoutSeconds;
   private final Map<String, CircuitBreaker> circuitBreakers = new ConcurrentHashMap<>();
+  private final CircuitBreakerConfig circuitBreakerConfig;
 
-  public ProxyClient(ConnectionPoolConfig config) {
+  public ProxyClient(ConnectionPoolConfig config, CircuitBreakerConfig cbConfig) {
     this.client = HttpClient.newBuilder()
         .version(HttpClient.Version.HTTP_1_1)
         .connectTimeout(Duration.ofSeconds(config.getConnectTimeoutSeconds()))
         .build();
     this.requestTimeoutSeconds = config.getRequestTimeoutSeconds();
+    this.circuitBreakerConfig = cbConfig;
   }
 
   public CompletableFuture<ProxyResponse> forwardRequest(String url, FullHttpRequest msg) {
-    CircuitBreaker circuitBreaker = circuitBreakers.computeIfAbsent(url, k -> new CircuitBreaker(5, 10000));
+    CircuitBreaker circuitBreaker = circuitBreakers.computeIfAbsent(url, k -> new CircuitBreaker(circuitBreakerConfig.getFailureThreshold(), circuitBreakerConfig.getRecoveryTimeMs()));
     if (!circuitBreaker.allowRequest()) {
       return CompletableFuture.failedFuture(new RuntimeException("Circuit breaker is open"));
     }
@@ -57,7 +60,19 @@ public class ProxyClient {
     }
     HttpRequest request = requestBuild.build();
 
-    CompletableFuture<ProxyResponse> responseFuture = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray()).thenApply(response -> new ProxyResponse(response.statusCode(), response.body(), response.headers().firstValue("Content-Type").orElse("application/json")));
+    CompletableFuture<ProxyResponse> responseFuture = client.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                                                            .thenApply(response -> {
+                                                              if (response.statusCode() >= 500) {
+                                                                circuitBreaker.recordFailure();
+                                                              } else {
+                                                                circuitBreaker.recordSuccess();
+                                                              }
+                                                              return new ProxyResponse(response.statusCode(), response.body(), response.headers().firstValue("Content-Type").orElse("application/json"));
+                                                            })
+                                                            .exceptionally(throwable -> {
+                                                              circuitBreaker.recordFailure();
+                                                              throw new RuntimeException(throwable);
+                                                            });
 
     return responseFuture;
   }

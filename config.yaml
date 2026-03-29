@@ -16,7 +16,13 @@ routes:
       - http://localhost:9001
 
 rateLimitPerMinute: 60
+
 loadBalancerStrategy: round-robin
+
 connectionPool:
   connectTimeoutSeconds: 5
   requestTimeoutSeconds: 10
+
+circuitBreaker:
+  failureThreshold: 5
+  recoveryTimeoutSeconds: 30

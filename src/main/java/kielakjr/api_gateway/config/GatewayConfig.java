@@ -9,6 +9,7 @@ public class GatewayConfig {
   private int rateLimitPerMinute;
   private LoadBalancerStrategy loadBalancerStrategy;
   private ConnectionPoolConfig connectionPool;
+  private CircuitBreakerConfig circuitBreaker;
 
   public ServerConfig getServer() {
     return server;
@@ -48,5 +49,13 @@ public class GatewayConfig {
 
   public void setConnectionPool(ConnectionPoolConfig connectionPool) {
     this.connectionPool = connectionPool;
+  }
+
+  public CircuitBreakerConfig getCircuitBreaker() {
+    return circuitBreaker;
+  }
+
+  public void setCircuitBreaker(CircuitBreakerConfig circuitBreaker) {
+    this.circuitBreaker = circuitBreaker;
   }
 }

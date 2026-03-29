@@ -17,7 +17,6 @@ import io.netty.util.CharsetUtil;
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.proxy.ProxyClient;
-import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.context.RequestContext;
 
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
@@ -25,10 +24,10 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
 
-  public GatewayHandler(Router router, FilterChain filterChain, ConnectionPoolConfig connectionPoolConfig) {
+  public GatewayHandler(Router router, FilterChain filterChain, ProxyClient proxyClient) {
     this.router = router;
     this.filterChain = filterChain;
-    this.proxyClient = new ProxyClient(connectionPoolConfig);
+    this.proxyClient = proxyClient;
   }
 
   @Override
