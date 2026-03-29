@@ -25,4 +25,4 @@ connectionPool:
 
 circuitBreaker:
   failureThreshold: 5
-  recoveryTimeoutSeconds: 30
+  recoveryTimeMs: 30000

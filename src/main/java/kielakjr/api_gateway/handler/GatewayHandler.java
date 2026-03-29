@@ -17,6 +17,7 @@ import io.netty.util.CharsetUtil;
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.proxy.ProxyClient;
+import kielakjr.api_gateway.resilience.CircuitBreakerOpenException;
 import kielakjr.api_gateway.context.RequestContext;
 
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
@@ -50,7 +51,7 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         rctx.setMatchedRoute(route);
       }).exceptionally(throwable -> {
         Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
-        if (cause instanceof RuntimeException && cause.getMessage().equals("Circuit breaker is open")) {
+        if (cause instanceof CircuitBreakerOpenException) {
           writeServiceUnavailableResponse(ctx);
           return null;
         }

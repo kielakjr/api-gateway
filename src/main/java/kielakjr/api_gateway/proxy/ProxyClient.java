@@ -1,20 +1,20 @@
 package kielakjr.api_gateway.proxy;
 
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.FullHttpRequest;
-import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.config.CircuitBreakerConfig;
+import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.resilience.CircuitBreaker;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import java.net.URI;
+import kielakjr.api_gateway.resilience.CircuitBreakerOpenException;
 
 
 public class ProxyClient {
@@ -35,7 +35,7 @@ public class ProxyClient {
   public CompletableFuture<ProxyResponse> forwardRequest(String url, FullHttpRequest msg) {
     CircuitBreaker circuitBreaker = circuitBreakers.computeIfAbsent(url, k -> new CircuitBreaker(circuitBreakerConfig.getFailureThreshold(), circuitBreakerConfig.getRecoveryTimeMs()));
     if (!circuitBreaker.allowRequest()) {
-      return CompletableFuture.failedFuture(new RuntimeException("Circuit breaker is open"));
+      return CompletableFuture.failedFuture(new CircuitBreakerOpenException("Circuit breaker is open"));
     }
 
     ByteBuf content = msg.content();
