@@ -21,9 +21,9 @@ import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.context.RequestContext;
 
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
-  private Router router;
-  private FilterChain filterChain;
-  private ProxyClient proxyClient;
+  private final Router router;
+  private final FilterChain filterChain;
+  private final ProxyClient proxyClient;
 
   public GatewayHandler(Router router, FilterChain filterChain, ConnectionPoolConfig connectionPoolConfig) {
     this.router = router;
@@ -50,8 +50,13 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         rctx.setResolvedUpstream(route);
         rctx.setMatchedRoute(route);
       }).exceptionally(throwable -> {
-        throwable.printStackTrace();
-        writeUpstreamErrorResponse(ctx);
+        Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
+        if (cause instanceof RuntimeException && cause.getMessage().equals("Circuit breaker is open")) {
+          writeServiceUnavailableResponse(ctx);
+          return null;
+        }
+        cause.printStackTrace();
+        writeBadGatewayResponse(ctx);
         return null;
       });
     }
@@ -100,10 +105,20 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
   }
 
-  private void writeUpstreamErrorResponse(ChannelHandlerContext ctx) {
+  private void writeBadGatewayResponse(ChannelHandlerContext ctx) {
     FullHttpResponse response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
       HttpResponseStatus.BAD_GATEWAY,
+      Unpooled.EMPTY_BUFFER
+    );
+    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
+    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+  }
+
+  private void writeServiceUnavailableResponse(ChannelHandlerContext ctx) {
+    FullHttpResponse response = new DefaultFullHttpResponse(
+      HttpVersion.HTTP_1_1,
+      HttpResponseStatus.SERVICE_UNAVAILABLE,
       Unpooled.EMPTY_BUFFER
     );
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);

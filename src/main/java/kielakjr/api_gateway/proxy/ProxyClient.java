@@ -9,6 +9,9 @@ import java.util.concurrent.CompletableFuture;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.FullHttpRequest;
 import kielakjr.api_gateway.config.ConnectionPoolConfig;
+import kielakjr.api_gateway.resilience.CircuitBreaker;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import java.net.URI;
 
@@ -16,6 +19,7 @@ import java.net.URI;
 public class ProxyClient {
   private HttpClient client;
   private int requestTimeoutSeconds;
+  private final Map<String, CircuitBreaker> circuitBreakers = new ConcurrentHashMap<>();
 
   public ProxyClient(ConnectionPoolConfig config) {
     this.client = HttpClient.newBuilder()
@@ -26,6 +30,11 @@ public class ProxyClient {
   }
 
   public CompletableFuture<ProxyResponse> forwardRequest(String url, FullHttpRequest msg) {
+    CircuitBreaker circuitBreaker = circuitBreakers.computeIfAbsent(url, k -> new CircuitBreaker(5, 10000));
+    if (!circuitBreaker.allowRequest()) {
+      return CompletableFuture.failedFuture(new RuntimeException("Circuit breaker is open"));
+    }
+
     ByteBuf content = msg.content();
     byte[] bodyBytes = new byte[content.readableBytes()];
     content.readBytes(bodyBytes);
