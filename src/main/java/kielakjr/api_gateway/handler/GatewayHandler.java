@@ -12,6 +12,7 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.util.CharsetUtil;
 
 import kielakjr.api_gateway.router.Router;
@@ -64,8 +65,13 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
   @Override
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-    cause.printStackTrace();
-    ctx.close();
+    Throwable rootCause = cause.getCause() != null ? cause.getCause() : cause;
+    if (rootCause instanceof ReadTimeoutException) {
+      writeGatewayTimeoutResponse(ctx);
+    } else {
+      rootCause.printStackTrace();
+      writeInternalServerErrorResponse(ctx);
+    }
   }
 
   private void writeResponse(ChannelHandlerContext ctx, FullHttpRequest request, int statusCode, String contentType, String content) {
@@ -119,6 +125,26 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     FullHttpResponse response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
       HttpResponseStatus.SERVICE_UNAVAILABLE,
+      Unpooled.EMPTY_BUFFER
+    );
+    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
+    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+  }
+
+  private void writeGatewayTimeoutResponse(ChannelHandlerContext ctx) {
+    FullHttpResponse response = new DefaultFullHttpResponse(
+      HttpVersion.HTTP_1_1,
+      HttpResponseStatus.GATEWAY_TIMEOUT,
+      Unpooled.EMPTY_BUFFER
+    );
+    response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
+    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+  }
+
+  private void writeInternalServerErrorResponse(ChannelHandlerContext ctx) {
+    FullHttpResponse response = new DefaultFullHttpResponse(
+      HttpVersion.HTTP_1_1,
+      HttpResponseStatus.INTERNAL_SERVER_ERROR,
       Unpooled.EMPTY_BUFFER
     );
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
