@@ -6,8 +6,10 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
 import kielakjr.api_gateway.config.ConnectionPoolConfig;
+import kielakjr.api_gateway.config.CircuitBreakerConfig;
 import kielakjr.api_gateway.config.RouteConfig;
 import kielakjr.api_gateway.filter.FilterChain;
+import kielakjr.api_gateway.proxy.ProxyClient;
 import kielakjr.api_gateway.router.Router;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -65,15 +67,18 @@ class GatewayHandlerTest {
     router = new Router(List.of(usersRoute));
   }
 
-  private static ConnectionPoolConfig defaultPoolConfig() {
-    ConnectionPoolConfig config = new ConnectionPoolConfig();
-    config.setConnectTimeoutSeconds(5);
-    config.setRequestTimeoutSeconds(5);
-    return config;
+  private static ProxyClient defaultProxyClient() {
+    ConnectionPoolConfig poolConfig = new ConnectionPoolConfig();
+    poolConfig.setConnectTimeoutSeconds(5);
+    poolConfig.setRequestTimeoutSeconds(5);
+    CircuitBreakerConfig cbConfig = new CircuitBreakerConfig();
+    cbConfig.setFailureThreshold(5);
+    cbConfig.setRecoveryTimeMs(30000);
+    return new ProxyClient(poolConfig, cbConfig);
   }
 
   private EmbeddedChannel createChannel(FilterChain filterChain) {
-    return new EmbeddedChannel(new GatewayHandler(router, filterChain, defaultPoolConfig()));
+    return new EmbeddedChannel(new GatewayHandler(router, filterChain, defaultProxyClient()));
   }
 
   private FullHttpResponse sendRequest(EmbeddedChannel channel, HttpMethod method, String uri) {
@@ -293,7 +298,7 @@ class GatewayHandlerTest {
     Router deadRouter = new Router(List.of(deadRoute));
 
     FilterChain chain = new FilterChain(List.of());
-    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(deadRouter, chain, defaultPoolConfig()));
+    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(deadRouter, chain, defaultProxyClient()));
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/dead");
     channel.writeInbound(request);
