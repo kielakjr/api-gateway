@@ -26,7 +26,6 @@ class JwtUtil {
       Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
       return true;
     } catch (Exception e) {
-      System.out.println("Token validation error: " + e.getMessage());
       return false;
     }
   }
@@ -44,25 +43,28 @@ public class AuthFilter implements Filter {
     String authHeader = request.headers().get("Authorization");
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
       rctx.setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-      writeUnauthorizedResponse(ctx);
+      writeUnauthorizedResponse(ctx, rctx);
       return false;
     }
 
     String token = authHeader.substring(7);
     if (!JwtUtil.validateToken(token, jwtSecret)) {
       rctx.setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
-      writeUnauthorizedResponse(ctx);
+      writeUnauthorizedResponse(ctx, rctx);
       return false;
     }
     return true;
   }
 
-  private void writeUnauthorizedResponse(ChannelHandlerContext ctx) {
+  private void writeUnauthorizedResponse(ChannelHandlerContext ctx, RequestContext rctx) {
     FullHttpResponse response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
       HttpResponseStatus.UNAUTHORIZED,
       Unpooled.copiedBuffer("Unauthorized", CharsetUtil.UTF_8)
     );
+    if (rctx.getCorsOrigin() != null) {
+      response.headers().set("Access-Control-Allow-Origin", rctx.getCorsOrigin());
+    }
     response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, response.content().readableBytes());
     ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);

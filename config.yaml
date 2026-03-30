@@ -47,3 +47,4 @@ cors:
   allowedHeaders:
     - Content-Type
     - Authorization
+  maxAgeSeconds: 3600

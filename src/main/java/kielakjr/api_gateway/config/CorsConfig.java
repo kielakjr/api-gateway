@@ -6,6 +6,7 @@ public class CorsConfig {
   private List<String> allowedOrigins;
   private List<String> allowedMethods;
   private List<String> allowedHeaders;
+  private int maxAgeSeconds;
 
   public List<String> getAllowedOrigins() {
     return allowedOrigins;
@@ -29,5 +30,13 @@ public class CorsConfig {
 
   public void setAllowedHeaders(List<String> allowedHeaders) {
     this.allowedHeaders = allowedHeaders;
+  }
+
+  public int getMaxAgeSeconds() {
+    return maxAgeSeconds;
+  }
+
+  public void setMaxAgeSeconds(int maxAgeSeconds) {
+    this.maxAgeSeconds = maxAgeSeconds;
   }
 }

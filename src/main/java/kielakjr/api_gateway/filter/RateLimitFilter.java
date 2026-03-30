@@ -33,18 +33,21 @@ public class RateLimitFilter implements Filter {
       return true;
     } else {
       rctx.setStatusCode(HttpResponseStatus.TOO_MANY_REQUESTS.code());
-      writeTooManyRequestsResponse(ctx);
+      writeTooManyRequestsResponse(ctx, rctx);
       return false;
     }
   }
 
-  private void writeTooManyRequestsResponse(ChannelHandlerContext ctx) {
+  private void writeTooManyRequestsResponse(ChannelHandlerContext ctx, RequestContext rctx) {
     FullHttpResponse response = new DefaultFullHttpResponse(
       HttpVersion.HTTP_1_1,
       HttpResponseStatus.TOO_MANY_REQUESTS,
       Unpooled.copiedBuffer("Too Many Requests", CharsetUtil.UTF_8)
     );
     response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
+    if (rctx.getCorsOrigin() != null) {
+      response.headers().set("Access-Control-Allow-Origin", rctx.getCorsOrigin());
+    }
     ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
   }
 
