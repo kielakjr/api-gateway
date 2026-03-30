@@ -20,6 +20,7 @@ import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.proxy.ProxyClient;
 import kielakjr.api_gateway.resilience.CircuitBreakerOpenException;
 import kielakjr.api_gateway.context.RequestContext;
+import kielakjr.api_gateway.metrics.MetricsRegistry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,7 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
   private final Logger log = LoggerFactory.getLogger(GatewayHandler.class);
+  private final MetricsCollector metricsCollector = new MetricsCollector(new MetricsRegistry());
 
   public GatewayHandler(Router router, FilterChain filterChain, ProxyClient proxyClient) {
     this.router = router;
@@ -63,7 +65,12 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         cause.printStackTrace();
         writeBadGatewayResponse(ctx);
         return null;
-      });
+      })
+      .whenComplete((resp, throwable) -> {
+          metricsCollector.recordRequest(rctx.getStartTimeNanos(), throwable != null);
+          msg.release();
+        }
+      );
     }
   }
 
@@ -153,5 +160,18 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     );
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
     ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+  }
+
+  public class MetricsCollector {
+    private final MetricsRegistry metricsRegistry;
+
+    public MetricsCollector(MetricsRegistry metricsRegistry) {
+      this.metricsRegistry = metricsRegistry;
+    }
+
+    public void recordRequest(long startTimeNanos, boolean error) {
+      long latencyMs = (System.nanoTime() - startTimeNanos) / 1_000_000;
+      metricsRegistry.recordRequest(latencyMs, error);
+    }
   }
 }

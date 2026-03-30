@@ -12,9 +12,7 @@ public class LoggingFilter implements Filter {
 
   @Override
   public boolean apply(ChannelHandlerContext ctx, FullHttpRequest request, RequestContext rctx) {
-    log.info("Incoming request: {}", request.uri());
-    log.info("Method: {}", request.method());
-    log.info("Request ID: {}", rctx.getRequestId());
+    log.info("Incoming request: method={}, uri={}, [req-id={}]", request.method(), request.uri(), rctx.getRequestId());
     return true;
   }
 }
