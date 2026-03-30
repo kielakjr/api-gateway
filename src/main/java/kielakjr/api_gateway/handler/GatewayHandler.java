@@ -31,12 +31,14 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
   private final Logger log = LoggerFactory.getLogger(GatewayHandler.class);
+  private final MetricsRegistry metricsRegistry;
   private final MetricsCollector metricsCollector;
 
   public GatewayHandler(Router router, FilterChain filterChain, ProxyClient proxyClient, MetricsRegistry metricsRegistry) {
     this.router = router;
     this.filterChain = filterChain;
     this.proxyClient = proxyClient;
+    this.metricsRegistry = metricsRegistry;
     this.metricsCollector = new MetricsCollector(metricsRegistry);
   }
 
@@ -47,6 +49,11 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) {
+    if (msg.uri().startsWith("/_gateway/")) {
+      handleAdminRequest(ctx, msg);
+      return;
+    }
+
     RequestContext rctx = filterChain.execute(ctx, msg);
     if (rctx != null) {
       String route = router.resolve(msg.uri());
@@ -64,6 +71,7 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
       }).exceptionally(throwable -> {
         Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
         if (cause instanceof CircuitBreakerOpenException) {
+          rctx.setStatusCode(503);
           writeServiceUnavailableResponse(ctx);
           return null;
         }
@@ -84,9 +92,11 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
     Throwable rootCause = cause.getCause() != null ? cause.getCause() : cause;
     if (rootCause instanceof ReadTimeoutException) {
+      metricsCollector.recordRequest(System.nanoTime(), 504);
       writeGatewayTimeoutResponse(ctx);
     } else {
       log.error("Unexpected error while processing request", cause);
+      metricsCollector.recordRequest(System.nanoTime(), 500);
       writeInternalServerErrorResponse(ctx);
     }
   }
@@ -166,5 +176,20 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     );
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
     ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+  }
+
+  private void handleAdminRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+    String uri = request.uri();
+    String body;
+
+    if (uri.equals("/_gateway/health")) {
+      body = "{\"status\":\"UP\"}";
+    } else if (uri.equals("/_gateway/metrics")) {
+      body = metricsRegistry.toJson();
+    } else {
+      writeNotFoundResponse(ctx);
+      return;
+    }
+    writeResponse(ctx, request, 200, "application/json", body);
   }
 }
