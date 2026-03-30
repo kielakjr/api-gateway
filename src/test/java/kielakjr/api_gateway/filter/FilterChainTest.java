@@ -8,6 +8,8 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
 import kielakjr.api_gateway.context.RequestContext;
+import kielakjr.api_gateway.metrics.MetricsRegistry;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -36,7 +38,7 @@ class FilterChainTest {
 
   @Test
   void execute_emptyChain_returnsNonNull() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
 
     assertNotNull(executeChain(chain, createRequest()));
   }
@@ -45,7 +47,7 @@ class FilterChainTest {
   void execute_allFiltersPass_returnsNonNull() {
     Filter passing1 = (c, r, rctx) -> true;
     Filter passing2 = (c, r, rctx) -> true;
-    FilterChain chain = new FilterChain(List.of(passing1, passing2));
+    FilterChain chain = new FilterChain(List.of(passing1, passing2), new MetricsRegistry());
 
     assertNotNull(executeChain(chain, createRequest()));
   }
@@ -54,7 +56,7 @@ class FilterChainTest {
   void execute_firstFilterFails_returnsNull() {
     Filter failing = (c, r, rctx) -> false;
     Filter passing = (c, r, rctx) -> true;
-    FilterChain chain = new FilterChain(List.of(failing, passing));
+    FilterChain chain = new FilterChain(List.of(failing, passing), new MetricsRegistry());
 
     assertNull(executeChain(chain, createRequest()));
   }
@@ -63,7 +65,7 @@ class FilterChainTest {
   void execute_secondFilterFails_returnsNull() {
     Filter passing = (c, r, rctx) -> true;
     Filter failing = (c, r, rctx) -> false;
-    FilterChain chain = new FilterChain(List.of(passing, failing));
+    FilterChain chain = new FilterChain(List.of(passing, failing), new MetricsRegistry());
 
     assertNull(executeChain(chain, createRequest()));
   }
@@ -73,7 +75,7 @@ class FilterChainTest {
     AtomicBoolean secondCalled = new AtomicBoolean(false);
     Filter failing = (c, r, rctx) -> false;
     Filter second = (c, r, rctx) -> { secondCalled.set(true); return true; };
-    FilterChain chain = new FilterChain(List.of(failing, second));
+    FilterChain chain = new FilterChain(List.of(failing, second), new MetricsRegistry());
 
     executeChain(chain, createRequest());
 
@@ -86,7 +88,7 @@ class FilterChainTest {
     Filter first = (c, r, rctx) -> { order.append("1"); return true; };
     Filter second = (c, r, rctx) -> { order.append("2"); return true; };
     Filter third = (c, r, rctx) -> { order.append("3"); return true; };
-    FilterChain chain = new FilterChain(List.of(first, second, third));
+    FilterChain chain = new FilterChain(List.of(first, second, third), new MetricsRegistry());
 
     executeChain(chain, createRequest());
 

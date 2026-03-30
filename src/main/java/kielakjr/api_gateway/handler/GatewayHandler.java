@@ -31,14 +31,12 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
   private final Logger log = LoggerFactory.getLogger(GatewayHandler.class);
-  private final MetricsRegistry metricsRegistry;
   private final MetricsCollector metricsCollector;
 
   public GatewayHandler(Router router, FilterChain filterChain, ProxyClient proxyClient, MetricsRegistry metricsRegistry) {
     this.router = router;
     this.filterChain = filterChain;
     this.proxyClient = proxyClient;
-    this.metricsRegistry = metricsRegistry;
     this.metricsCollector = new MetricsCollector(metricsRegistry);
   }
 

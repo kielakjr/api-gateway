@@ -9,6 +9,7 @@ import kielakjr.api_gateway.config.ConnectionPoolConfig;
 import kielakjr.api_gateway.config.CircuitBreakerConfig;
 import kielakjr.api_gateway.config.RetryPolicyConfig;
 import kielakjr.api_gateway.config.RouteConfig;
+import kielakjr.api_gateway.metrics.MetricsRegistry;
 import kielakjr.api_gateway.filter.FilterChain;
 import kielakjr.api_gateway.proxy.ProxyClient;
 import kielakjr.api_gateway.router.Router;
@@ -83,7 +84,7 @@ class GatewayHandlerTest {
   }
 
   private EmbeddedChannel createChannel(FilterChain filterChain) {
-    return new EmbeddedChannel(new GatewayHandler(router, filterChain, defaultProxyClient()));
+    return new EmbeddedChannel(new GatewayHandler(router, filterChain, defaultProxyClient(), new MetricsRegistry()));
   }
 
   private FullHttpResponse sendRequest(EmbeddedChannel channel, HttpMethod method, String uri) {
@@ -125,7 +126,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_matchingRoute_returns200() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpResponse response = sendGetRequest(channel, "/api/users");
@@ -138,7 +139,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_proxiedResponse_containsUpstreamPath() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpResponse response = sendGetRequest(channel, "/api/users");
@@ -150,7 +151,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_subpath_forwardsFullUri() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpResponse response = sendGetRequest(channel, "/api/users/123");
@@ -163,7 +164,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_noMatchingRoute_returns404() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpResponse response = sendGetRequest(channel, "/unknown");
@@ -175,7 +176,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_filterRejects_noResponseFromHandler() {
-    FilterChain chain = new FilterChain(List.of((ctx, req, rctx) -> false));
+    FilterChain chain = new FilterChain(List.of((ctx, req, rctx) -> false), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
@@ -187,7 +188,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_matchingRoute_setsContentType() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpResponse response = sendGetRequest(channel, "/api/users");
@@ -198,7 +199,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_matchingRoute_setsContentLength() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpResponse response = sendGetRequest(channel, "/api/users");
@@ -210,7 +211,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_notFoundRoute_setsContentLengthZero() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpResponse response = sendGetRequest(channel, "/unknown");
@@ -221,7 +222,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_keepAlive_setsConnectionHeader() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
@@ -235,7 +236,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_notKeepAlive_noConnectionHeader() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
@@ -249,7 +250,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_postWithBody_forwardsToUpstream() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpRequest request = new DefaultFullHttpRequest(
@@ -267,7 +268,7 @@ class GatewayHandlerTest {
 
   @Test
   void channelRead0_multipleRequestsSameChannel_allSucceed() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     FullHttpRequest request1 = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/users");
@@ -287,7 +288,7 @@ class GatewayHandlerTest {
 
   @Test
   void exceptionCaught_closesChannel() {
-    FilterChain chain = new FilterChain(List.of());
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
     EmbeddedChannel channel = createChannel(chain);
 
     channel.pipeline().fireExceptionCaught(new RuntimeException("test error"));
@@ -302,8 +303,8 @@ class GatewayHandlerTest {
     deadRoute.setUpstreams(List.of("http://localhost:1"));
     Router deadRouter = new Router(List.of(deadRoute));
 
-    FilterChain chain = new FilterChain(List.of());
-    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(deadRouter, chain, defaultProxyClient()));
+    FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
+    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(deadRouter, chain, defaultProxyClient(), new MetricsRegistry()));
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/dead");
     channel.writeInbound(request);

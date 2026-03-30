@@ -7,20 +7,14 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import kielakjr.api_gateway.metrics.MetricsCollector;
 import kielakjr.api_gateway.metrics.MetricsRegistry;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import kielakjr.api_gateway.context.RequestContext;
 
 public class FilterChain {
   private final List<Filter> filters;
   private final MetricsCollector metricsCollector;
-  private final MetricsRegistry metricsRegistry;
-  private final Logger log = LoggerFactory.getLogger(FilterChain.class);
 
   public FilterChain(List<Filter> filters, MetricsRegistry metricsRegistry) {
     this.filters = filters;
-    this.metricsRegistry = metricsRegistry;
     this.metricsCollector = new MetricsCollector(metricsRegistry);
   }
 
