@@ -21,10 +21,14 @@ import kielakjr.api_gateway.proxy.ProxyClient;
 import kielakjr.api_gateway.resilience.CircuitBreakerOpenException;
 import kielakjr.api_gateway.context.RequestContext;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
   private final Router router;
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
+  private final Logger log = LoggerFactory.getLogger(GatewayHandler.class);
 
   public GatewayHandler(Router router, FilterChain filterChain, ProxyClient proxyClient) {
     this.router = router;
@@ -69,7 +73,7 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     if (rootCause instanceof ReadTimeoutException) {
       writeGatewayTimeoutResponse(ctx);
     } else {
-      rootCause.printStackTrace();
+      log.error("Unexpected error while processing request", cause);
       writeInternalServerErrorResponse(ctx);
     }
   }
