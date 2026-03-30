@@ -186,7 +186,10 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
       body = "{\"status\":\"UP\"}";
     } else if (uri.equals("/_gateway/metrics")) {
       body = metricsRegistry.toJson();
-    } else {
+    } else if (uri.equals("/_gateway/routes")) {
+      body = router.getRoutesAsJson();
+    }
+    else {
       writeNotFoundResponse(ctx);
       return;
     }

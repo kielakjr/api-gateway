@@ -39,4 +39,28 @@ public class Router {
     }
     return null;
   }
+
+  public String getRoutesAsJson() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("[");
+    for (int i = 0; i < routes.size(); i++) {
+      RouteConfig route = routes.get(i);
+      sb.append("{");
+      sb.append("\"path\":\"").append(route.getPath()).append("\",");
+      sb.append("\"upstreams\":[");
+      List<String> upstreams = route.getUpstreams();
+      for (int j = 0; j < upstreams.size(); j++) {
+        sb.append("\"").append(upstreams.get(j)).append("\"");
+        if (j < upstreams.size() - 1) {
+          sb.append(",");
+        }
+      }
+      sb.append("]}");
+      if (i < routes.size() - 1) {
+        sb.append(",");
+      }
+    }
+    sb.append("]");
+    return sb.toString();
+  }
 }
