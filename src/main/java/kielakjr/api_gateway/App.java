@@ -1,6 +1,7 @@
 package kielakjr.api_gateway;
 
 import kielakjr.api_gateway.config.GatewayConfig;
+import kielakjr.api_gateway.metrics.MetricsRegistry;
 import kielakjr.api_gateway.server.GatewayServer;
 import kielakjr.api_gateway.config.ConfigLoader;
 
@@ -15,6 +16,7 @@ import com.sun.net.httpserver.HttpServer;
 public class App {
   public static void main(String[] args) throws Exception {
     GatewayConfig config = new ConfigLoader().loadConfig("config.yaml");
+    MetricsRegistry metricsRegistry = new MetricsRegistry();
     Set<Integer> startedPorts = new HashSet<>();
     for (var route : config.getRoutes()) {
       for (String upstream : route.getUpstreams()) {
@@ -25,7 +27,7 @@ public class App {
       }
     }
 
-    GatewayServer server = new GatewayServer(config);
+    GatewayServer server = new GatewayServer(config, metricsRegistry);
     server.run();
   }
 

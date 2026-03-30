@@ -43,12 +43,14 @@ public class AuthFilter implements Filter {
   public boolean apply(ChannelHandlerContext ctx, FullHttpRequest request, RequestContext rctx) {
     String authHeader = request.headers().get("Authorization");
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+      rctx.setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
       writeUnauthorizedResponse(ctx);
       return false;
     }
 
     String token = authHeader.substring(7);
     if (!JwtUtil.validateToken(token, jwtSecret)) {
+      rctx.setStatusCode(HttpResponseStatus.UNAUTHORIZED.code());
       writeUnauthorizedResponse(ctx);
       return false;
     }

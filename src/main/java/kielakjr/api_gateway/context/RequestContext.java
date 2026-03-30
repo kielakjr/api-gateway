@@ -8,6 +8,7 @@ public class RequestContext {
   private long startTimeNanos;
   private String resolvedUpstream;
   private String matchedRoute;
+  private int statusCode;
 
   public RequestContext(String clientIp) {
     this.requestId = UUID.randomUUID().toString();
@@ -43,4 +44,11 @@ public class RequestContext {
     this.matchedRoute = matchedRoute;
   }
 
+  public int getStatusCode() {
+    return statusCode;
+  }
+
+  public void setStatusCode(int statusCode) {
+    this.statusCode = statusCode;
+  }
 }

@@ -32,6 +32,7 @@ public class RateLimitFilter implements Filter {
     if (tokenBucket.consume()) {
       return true;
     } else {
+      rctx.setStatusCode(HttpResponseStatus.TOO_MANY_REQUESTS.code());
       writeTooManyRequestsResponse(ctx);
       return false;
     }

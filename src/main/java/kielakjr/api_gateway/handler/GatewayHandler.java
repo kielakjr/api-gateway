@@ -21,6 +21,7 @@ import kielakjr.api_gateway.proxy.ProxyClient;
 import kielakjr.api_gateway.resilience.CircuitBreakerOpenException;
 import kielakjr.api_gateway.context.RequestContext;
 import kielakjr.api_gateway.metrics.MetricsRegistry;
+import kielakjr.api_gateway.metrics.MetricsCollector;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,12 +31,15 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
   private final Logger log = LoggerFactory.getLogger(GatewayHandler.class);
-  private final MetricsCollector metricsCollector = new MetricsCollector(new MetricsRegistry());
+  private final MetricsRegistry metricsRegistry;
+  private final MetricsCollector metricsCollector;
 
-  public GatewayHandler(Router router, FilterChain filterChain, ProxyClient proxyClient) {
+  public GatewayHandler(Router router, FilterChain filterChain, ProxyClient proxyClient, MetricsRegistry metricsRegistry) {
     this.router = router;
     this.filterChain = filterChain;
     this.proxyClient = proxyClient;
+    this.metricsRegistry = metricsRegistry;
+    this.metricsCollector = new MetricsCollector(metricsRegistry);
   }
 
   @Override
@@ -49,6 +53,8 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     if (rctx != null) {
       String route = router.resolve(msg.uri());
       if (route == null) {
+        rctx.setStatusCode(404);
+        metricsCollector.recordRequest(rctx.getStartTimeNanos(), rctx.getStatusCode());
         writeNotFoundResponse(ctx);
         return;
       }
@@ -56,18 +62,20 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         writeResponse(ctx, msg, response.getStatusCode(), response.getContentType(), response.getBody() != null ? new String(response.getBody(), CharsetUtil.UTF_8) : null);
         rctx.setResolvedUpstream(route);
         rctx.setMatchedRoute(route);
+        rctx.setStatusCode(response.getStatusCode());
       }).exceptionally(throwable -> {
         Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
         if (cause instanceof CircuitBreakerOpenException) {
           writeServiceUnavailableResponse(ctx);
           return null;
         }
-        cause.printStackTrace();
+        log.error("Error forwarding request to upstream", cause);
+        rctx.setStatusCode(502);
         writeBadGatewayResponse(ctx);
         return null;
       })
       .whenComplete((resp, throwable) -> {
-          metricsCollector.recordRequest(rctx.getStartTimeNanos(), throwable != null);
+          metricsCollector.recordRequest(rctx.getStartTimeNanos(), rctx.getStatusCode());
           msg.release();
         }
       );
@@ -160,18 +168,5 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     );
     response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
     ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
-  }
-
-  public class MetricsCollector {
-    private final MetricsRegistry metricsRegistry;
-
-    public MetricsCollector(MetricsRegistry metricsRegistry) {
-      this.metricsRegistry = metricsRegistry;
-    }
-
-    public void recordRequest(long startTimeNanos, boolean error) {
-      long latencyMs = (System.nanoTime() - startTimeNanos) / 1_000_000;
-      metricsRegistry.recordRequest(latencyMs, error);
-    }
   }
 }

@@ -2,13 +2,16 @@ package kielakjr.api_gateway.metrics;
 
 public class MetricsRegistry {
   private Counter totalRequests = new Counter();
-  private Counter totalErrors = new Counter();
+  private Counter serverErrors = new Counter();
+  private Counter clientErrors = new Counter();
   private Histogram latencyHistogram = new Histogram();
 
-  public void recordRequest(long latency, boolean error) {
+  public void recordRequest(long latency, int statusCode) {
     totalRequests.increment();
-    if (error) {
-      totalErrors.increment();
+    if (statusCode >= 500) {
+      serverErrors.increment();
+    } else if (statusCode >= 400) {
+      clientErrors.increment();
     }
     latencyHistogram.record(latency);
   }
@@ -17,8 +20,12 @@ public class MetricsRegistry {
     return totalRequests;
   }
 
-  public Counter getTotalErrors() {
-    return totalErrors;
+  public Counter getServerErrors() {
+    return serverErrors;
+  }
+
+  public Counter getClientErrors() {
+    return clientErrors;
   }
 
   public Histogram getLatencyHistogram() {
@@ -27,9 +34,10 @@ public class MetricsRegistry {
 
   public String toJson() {
     return String.format(
-        "{\"totalRequests\": %d, \"totalErrors\": %d, \"latency\": {\"p50\": %.2f, \"p95\": %.2f, \"p99\": %.2f}}}",
+        "{\"totalRequests\": %d, \"serverErrors\": %d, \"clientErrors\": %d, \"latency\": {\"p50\": %.2f, \"p95\": %.2f, \"p99\": %.2f}}}",
         totalRequests.getCount(),
-        totalErrors.getCount(),
+        serverErrors.getCount(),
+        clientErrors.getCount(),
         latencyHistogram.getPercentile(50),
         latencyHistogram.getPercentile(95),
         latencyHistogram.getPercentile(99)

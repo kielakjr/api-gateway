@@ -10,6 +10,7 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import kielakjr.api_gateway.handler.GatewayHandler;
+import kielakjr.api_gateway.metrics.MetricsRegistry;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.ChannelOption;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -34,15 +35,17 @@ public class GatewayServer {
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
   private final TimeoutsConfig timeoutsConfig;
+  private final MetricsRegistry metricsRegistry;
 
 
-  public GatewayServer(GatewayConfig config) {
+  public GatewayServer(GatewayConfig config, MetricsRegistry metricsRegistry) {
     this.port = config.getServer().getPort();
     this.router = new Router(config.getRoutes(), config.getLoadBalancerStrategy());
     Dotenv dotenv = Dotenv.load();
-    this.filterChain = new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(config.getRateLimitPerMinute())));
+    this.filterChain = new FilterChain(List.of(new LoggingFilter(), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(config.getRateLimitPerMinute())), metricsRegistry);
     this.proxyClient = new ProxyClient(config.getConnectionPool(), config.getCircuitBreaker(), config.getRetryPolicy());
     this.timeoutsConfig = config.getTimeouts();
+    this.metricsRegistry = metricsRegistry;
   }
 
   public void run() throws Exception {
@@ -59,7 +62,7 @@ public class GatewayServer {
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
             ch.pipeline().addLast(new ReadTimeoutHandler(timeoutsConfig.getReadSeconds(), TimeUnit.SECONDS));
             ch.pipeline().addLast(new WriteTimeoutHandler(timeoutsConfig.getWriteSeconds(), TimeUnit.SECONDS));
-            ch.pipeline().addLast(new GatewayHandler(router, filterChain, proxyClient));
+            ch.pipeline().addLast(new GatewayHandler(router, filterChain, proxyClient, metricsRegistry));
           }
         })
         .option(ChannelOption.SO_BACKLOG, 128)
