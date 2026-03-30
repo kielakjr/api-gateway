@@ -9,6 +9,7 @@ public class RequestContext {
   private String resolvedUpstream;
   private String matchedRoute;
   private int statusCode;
+  private String corsOrigin;
 
   public RequestContext(String clientIp) {
     this.requestId = UUID.randomUUID().toString();
@@ -51,4 +52,13 @@ public class RequestContext {
   public void setStatusCode(int statusCode) {
     this.statusCode = statusCode;
   }
+
+  public String getCorsOrigin() {
+    return corsOrigin;
+  }
+
+  public void setCorsOrigin(String corsOrigin) {
+    this.corsOrigin = corsOrigin;
+  }
+
 }

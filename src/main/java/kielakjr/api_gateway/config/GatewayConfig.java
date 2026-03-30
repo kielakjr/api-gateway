@@ -12,6 +12,7 @@ public class GatewayConfig {
   private CircuitBreakerConfig circuitBreaker;
   private RetryPolicyConfig retryPolicy;
   private TimeoutsConfig timeouts;
+  private CorsConfig cors;
 
   public ServerConfig getServer() {
     return server;
@@ -75,5 +76,13 @@ public class GatewayConfig {
 
   public void setTimeouts(TimeoutsConfig timeouts) {
     this.timeouts = timeouts;
+  }
+
+  public CorsConfig getCors() {
+    return cors;
+  }
+
+  public void setCors(CorsConfig cors) {
+    this.cors = cors;
   }
 }

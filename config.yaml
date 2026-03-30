@@ -35,3 +35,15 @@ retryPolicy:
 timeouts:
   readSeconds: 30
   writeSeconds: 30
+
+cors:
+  allowedOrigins:
+    - "*"
+  allowedMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+  allowedHeaders:
+    - Content-Type
+    - Authorization
