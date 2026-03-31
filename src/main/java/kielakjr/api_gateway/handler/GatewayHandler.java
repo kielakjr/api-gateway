@@ -65,7 +65,7 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         return;
       }
       proxyClient.forwardRequest(route, msg).thenAccept(response -> {
-        writeResponse(ctx, msg, response.getStatusCode(), response.getContentType(), response.getBody() != null ? new String(response.getBody(), CharsetUtil.UTF_8) : null);
+        writeResponse(ctx, msg, response.getStatusCode(), response.getContentType(), response.getBody() != null ? new String(response.getBody(), CharsetUtil.UTF_8) : null, rctx);
         rctx.setResolvedUpstream(route);
         rctx.setMatchedRoute(route);
         rctx.setStatusCode(response.getStatusCode());
@@ -102,7 +102,7 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     }
   }
 
-  private void writeResponse(ChannelHandlerContext ctx, FullHttpRequest request, int statusCode, String contentType, String content) {
+  private void writeResponse(ChannelHandlerContext ctx, FullHttpRequest request, int statusCode, String contentType, String content, RequestContext rctx) {
     boolean keepAlive = HttpUtil.isKeepAlive(request);
 
     FullHttpResponse response = new DefaultFullHttpResponse(
@@ -120,6 +120,14 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
     if (keepAlive) {
       response.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+    }
+
+    if (rctx != null) {
+      var rateLimitInfo = rctx.getRateLimitInfo();
+      if (rateLimitInfo != null) {
+        response.headers().set("X-RateLimit-Remaining", rateLimitInfo.getTokens());
+        response.headers().set("X-RateLimit-Limit", rateLimitInfo.getCapacity());
+      }
     }
 
     if (keepAlive) {
@@ -194,6 +202,6 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
       writeNotFoundResponse(ctx);
       return;
     }
-    writeResponse(ctx, request, 200, "application/json", body);
+    writeResponse(ctx, request, 200, "application/json", body, null);
   }
 }

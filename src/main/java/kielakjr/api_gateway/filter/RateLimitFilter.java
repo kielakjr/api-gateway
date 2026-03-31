@@ -30,6 +30,7 @@ public class RateLimitFilter implements Filter {
     String clientId = rctx.getClientIp();
     TokenBucket tokenBucket = requestCounts.computeIfAbsent(clientId, k -> new TokenBucket(maxRequestsPerMinute));
     if (tokenBucket.consume()) {
+      rctx.setRateLimitInfo(tokenBucket.getTokens(), tokenBucket.getCapacity());
       return true;
     } else {
       rctx.setStatusCode(HttpResponseStatus.TOO_MANY_REQUESTS.code());
@@ -71,13 +72,21 @@ public class RateLimitFilter implements Filter {
       return false;
     }
 
-    private void refill() {
+    private synchronized void refill() {
       long now = System.currentTimeMillis();
       long elapsed = now - lastRefillTime;
       if (elapsed > 60000) {
         tokens.set(capacity);
         lastRefillTime = now;
       }
+    }
+
+    public long getTokens() {
+      return tokens.get();
+    }
+
+    public long getCapacity() {
+      return capacity;
     }
   }
 }

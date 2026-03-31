@@ -10,6 +10,7 @@ public class RequestContext {
   private String matchedRoute;
   private int statusCode;
   private String corsOrigin;
+  private RateLimitInfo rateLimitInfo;
 
   public RequestContext(String clientIp) {
     this.requestId = UUID.randomUUID().toString();
@@ -61,4 +62,29 @@ public class RequestContext {
     this.corsOrigin = corsOrigin;
   }
 
+  public void setRateLimitInfo(long tokens, long capacity) {
+    this.rateLimitInfo = new RateLimitInfo(tokens, capacity);
+  }
+
+  public RateLimitInfo getRateLimitInfo() {
+    return rateLimitInfo;
+  }
+
+  public class RateLimitInfo {
+    private long tokens;
+    private long capacity;
+
+    public RateLimitInfo(long tokens, long capacity) {
+      this.tokens = tokens;
+      this.capacity = capacity;
+    }
+
+    public long getTokens() {
+      return tokens;
+    }
+
+    public long getCapacity() {
+      return capacity;
+    }
+  }
 }
