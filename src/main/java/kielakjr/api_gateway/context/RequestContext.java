@@ -66,6 +66,10 @@ public class RequestContext {
     this.rateLimitInfo = new RateLimitInfo(tokens, capacity);
   }
 
+  public void setRateLimitInfo(long tokens, long capacity, long refillSeconds) {
+    this.rateLimitInfo = new RateLimitInfo(tokens, capacity, refillSeconds);
+  }
+
   public RateLimitInfo getRateLimitInfo() {
     return rateLimitInfo;
   }
@@ -73,10 +77,16 @@ public class RequestContext {
   public class RateLimitInfo {
     private long tokens;
     private long capacity;
+    private long refillSeconds;
 
     public RateLimitInfo(long tokens, long capacity) {
       this.tokens = tokens;
       this.capacity = capacity;
+    }
+
+    public RateLimitInfo(long tokens, long capacity, long refillSeconds) {
+      this(tokens, capacity);
+      this.refillSeconds = refillSeconds;
     }
 
     public long getTokens() {
@@ -85,6 +95,10 @@ public class RequestContext {
 
     public long getCapacity() {
       return capacity;
+    }
+
+    public long getRefillSeconds() {
+      return refillSeconds;
     }
   }
 }
