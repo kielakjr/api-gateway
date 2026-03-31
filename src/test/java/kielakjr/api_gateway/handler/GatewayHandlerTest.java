@@ -22,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,7 +30,7 @@ class GatewayHandlerTest {
 
   private static HttpServer upstream;
   private static int upstreamPort;
-  private Router router;
+  private AtomicReference<Router> routerRef;
 
   @BeforeAll
   static void startUpstream() throws Exception {
@@ -66,7 +67,8 @@ class GatewayHandlerTest {
     usersRoute.setPath("/api/users");
     usersRoute.setUpstreams(List.of("http://localhost:" + upstreamPort));
 
-    router = new Router(List.of(usersRoute));
+    Router router = new Router(List.of(usersRoute));
+    routerRef = new AtomicReference<>(router);
   }
 
   private static ProxyClient defaultProxyClient() {
@@ -84,7 +86,7 @@ class GatewayHandlerTest {
   }
 
   private EmbeddedChannel createChannel(FilterChain filterChain) {
-    return new EmbeddedChannel(new GatewayHandler(router, filterChain, defaultProxyClient(), new MetricsRegistry()));
+    return new EmbeddedChannel(new GatewayHandler(routerRef, filterChain, defaultProxyClient(), new MetricsRegistry()));
   }
 
   private FullHttpResponse sendRequest(EmbeddedChannel channel, HttpMethod method, String uri) {
@@ -303,8 +305,10 @@ class GatewayHandlerTest {
     deadRoute.setUpstreams(List.of("http://localhost:1"));
     Router deadRouter = new Router(List.of(deadRoute));
 
+    AtomicReference<Router> routerRef = new AtomicReference<>(deadRouter);
+
     FilterChain chain = new FilterChain(List.of(), new MetricsRegistry());
-    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(deadRouter, chain, defaultProxyClient(), new MetricsRegistry()));
+    EmbeddedChannel channel = new EmbeddedChannel(new GatewayHandler(routerRef, chain, defaultProxyClient(), new MetricsRegistry()));
 
     FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/api/dead");
     channel.writeInbound(request);

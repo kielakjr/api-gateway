@@ -14,6 +14,7 @@ import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.util.CharsetUtil;
+import java.util.concurrent.atomic.AtomicReference;
 
 import kielakjr.api_gateway.router.Router;
 import kielakjr.api_gateway.filter.FilterChain;
@@ -34,8 +35,8 @@ public class GatewayHandler extends SimpleChannelInboundHandler<FullHttpRequest>
   private final MetricsRegistry metricsRegistry;
   private final MetricsCollector metricsCollector;
 
-  public GatewayHandler(Router router, FilterChain filterChain, ProxyClient proxyClient, MetricsRegistry metricsRegistry) {
-    this.router = router;
+  public GatewayHandler(AtomicReference<Router> routerRef, FilterChain filterChain, ProxyClient proxyClient, MetricsRegistry metricsRegistry) {
+    this.router = routerRef.get();
     this.filterChain = filterChain;
     this.proxyClient = proxyClient;
     this.metricsRegistry = metricsRegistry;

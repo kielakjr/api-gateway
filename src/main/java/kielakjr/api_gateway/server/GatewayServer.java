@@ -18,6 +18,7 @@ import io.netty.bootstrap.ServerBootstrap;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import kielakjr.api_gateway.config.GatewayConfig;
 import kielakjr.api_gateway.router.Router;
@@ -30,25 +31,33 @@ import kielakjr.api_gateway.config.TimeoutsConfig;
 import kielakjr.api_gateway.filter.CorsFilter;
 import kielakjr.api_gateway.filter.RequestTransformFilter;
 import kielakjr.api_gateway.handler.SecurityHeadersHandler;
+import kielakjr.api_gateway.config.ConfigWatcher;
 
 public class GatewayServer {
 
   private final int port;
-  private final Router router;
   private final FilterChain filterChain;
   private final ProxyClient proxyClient;
   private final TimeoutsConfig timeoutsConfig;
   private final MetricsRegistry metricsRegistry;
+  private final AtomicReference<Router> routerRef = new AtomicReference<>();
+  private final ConfigWatcher configWatcher;
 
 
   public GatewayServer(GatewayConfig config, MetricsRegistry metricsRegistry) {
     this.port = config.getServer().getPort();
-    this.router = new Router(config.getRoutes(), config.getLoadBalancerStrategy());
+    this.routerRef.set(new Router(config.getRoutes(), config.getLoadBalancerStrategy()));
     Dotenv dotenv = Dotenv.load();
     this.filterChain = new FilterChain(List.of(new LoggingFilter(), new CorsFilter(config.getCors()), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(config.getRateLimitPerMinute()), new RequestTransformFilter()), metricsRegistry);
     this.proxyClient = new ProxyClient(config.getConnectionPool(), config.getCircuitBreaker(), config.getRetryPolicy());
     this.timeoutsConfig = config.getTimeouts();
     this.metricsRegistry = metricsRegistry;
+    this.configWatcher = new ConfigWatcher("config.yaml", routerRef);
+    try {
+      this.configWatcher.start();
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to start configuration watcher: " + e.getMessage());
+    }
   }
 
   public void run() throws Exception {
@@ -66,7 +75,7 @@ public class GatewayServer {
             ch.pipeline().addLast(new SecurityHeadersHandler());
             ch.pipeline().addLast(new ReadTimeoutHandler(timeoutsConfig.getReadSeconds(), TimeUnit.SECONDS));
             ch.pipeline().addLast(new WriteTimeoutHandler(timeoutsConfig.getWriteSeconds(), TimeUnit.SECONDS));
-            ch.pipeline().addLast(new GatewayHandler(router, filterChain, proxyClient, metricsRegistry));
+            ch.pipeline().addLast(new GatewayHandler(routerRef, filterChain, proxyClient, metricsRegistry));
           }
         })
         .option(ChannelOption.SO_BACKLOG, 128)
