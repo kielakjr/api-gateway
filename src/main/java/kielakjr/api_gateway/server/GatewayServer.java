@@ -28,6 +28,8 @@ import kielakjr.api_gateway.filter.AuthFilter;
 import kielakjr.api_gateway.filter.RateLimitFilter;
 import kielakjr.api_gateway.config.TimeoutsConfig;
 import kielakjr.api_gateway.filter.CorsFilter;
+import kielakjr.api_gateway.filter.RequestTransformFilter;
+import kielakjr.api_gateway.handler.SecurityHeadersHandler;
 
 public class GatewayServer {
 
@@ -43,7 +45,7 @@ public class GatewayServer {
     this.port = config.getServer().getPort();
     this.router = new Router(config.getRoutes(), config.getLoadBalancerStrategy());
     Dotenv dotenv = Dotenv.load();
-    this.filterChain = new FilterChain(List.of(new LoggingFilter(), new CorsFilter(config.getCors()), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(config.getRateLimitPerMinute())), metricsRegistry);
+    this.filterChain = new FilterChain(List.of(new LoggingFilter(), new CorsFilter(config.getCors()), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(config.getRateLimitPerMinute()), new RequestTransformFilter()), metricsRegistry);
     this.proxyClient = new ProxyClient(config.getConnectionPool(), config.getCircuitBreaker(), config.getRetryPolicy());
     this.timeoutsConfig = config.getTimeouts();
     this.metricsRegistry = metricsRegistry;
@@ -61,6 +63,7 @@ public class GatewayServer {
           public void initChannel(SocketChannel ch) throws Exception {
             ch.pipeline().addLast(new HttpServerCodec());
             ch.pipeline().addLast(new HttpObjectAggregator(1048576));
+            ch.pipeline().addLast(new SecurityHeadersHandler());
             ch.pipeline().addLast(new ReadTimeoutHandler(timeoutsConfig.getReadSeconds(), TimeUnit.SECONDS));
             ch.pipeline().addLast(new WriteTimeoutHandler(timeoutsConfig.getWriteSeconds(), TimeUnit.SECONDS));
             ch.pipeline().addLast(new GatewayHandler(router, filterChain, proxyClient, metricsRegistry));

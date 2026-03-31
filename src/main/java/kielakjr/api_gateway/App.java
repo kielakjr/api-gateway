@@ -37,10 +37,14 @@ public class App {
       String method = exchange.getRequestMethod();
       String path = exchange.getRequestURI().toString();
       byte[] requestBody = exchange.getRequestBody().readAllBytes();
+      String headers = exchange.getRequestHeaders().entrySet().stream()
+          .map(e -> e.getKey() + "=" + String.join(",", e.getValue()))
+          .reduce((a, b) -> a + "; " + b)
+          .orElse("");
 
       String response = String.format(
-          "{\"port\":%d,\"method\":\"%s\",\"path\":\"%s\",\"bodyLength\":%d}",
-          port, method, path, requestBody.length
+          "{\"port\":%d,\"method\":\"%s\",\"path\":\"%s\",\"bodyLength\":%d,\"headers\":\"%s\"}",
+          port, method, path, requestBody.length, headers
       );
 
       byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
