@@ -47,7 +47,7 @@ public class GatewayServer {
   public GatewayServer(GatewayConfig config, MetricsRegistry metricsRegistry) {
     this.port = config.getServer().getPort();
     this.routerRef.set(new Router(config.getRoutes(), config.getLoadBalancerStrategy()));
-    Dotenv dotenv = Dotenv.load();
+    Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     this.filterChain = new FilterChain(List.of(new LoggingFilter(), new CorsFilter(config.getCors()), new AuthFilter(dotenv.get("JWT_SECRET")), new RateLimitFilter(config.getRateLimitPerMinute()), new RequestTransformFilter()), metricsRegistry);
     this.proxyClient = new ProxyClient(config.getConnectionPool(), config.getCircuitBreaker(), config.getRetryPolicy());
     this.timeoutsConfig = config.getTimeouts();
